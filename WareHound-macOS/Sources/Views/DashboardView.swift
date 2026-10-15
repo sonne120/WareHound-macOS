@@ -233,6 +233,7 @@ struct SettingsView: View {
                 bpfAccessCard
                 captureCard
                 backendCard
+                licenseCard
             }
         case 2:
             VStack(spacing: 16) {
@@ -248,6 +249,7 @@ struct SettingsView: View {
                 }
                 protocolColorsCard
                 backendCard
+                licenseCard
             }
         default:
             EmptyView()
@@ -408,6 +410,20 @@ struct SettingsView: View {
             get: { settings.color(forProtocol: proto) },
             set: { settings.setProtocolColor($0, forProtocol: proto) }
         )
+    }
+
+    private var licenseCard: some View {
+        card("License", systemImage: "key.fill") {
+            Text(LicenseManager.shared.statusText)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(LicenseManager.shared.isUsable ? AppColors.textPrimary : AppColors.error)
+            Button {
+                LicenseManager.shared.isLicenseSheetPresented = true
+            } label: {
+                Label("Manage License…", systemImage: "key")
+            }
+            .buttonStyle(.bordered)
+        }
     }
 
     private var bpfAccessCard: some View {

@@ -123,6 +123,7 @@ final class CaptureViewModel {
     }
 
     func startCapture() {
+        guard LicenseManager.shared.requireLicense() else { return }
         guard !isCapturing else { return }
 
         let backend = SettingsViewModel.shared.selectedCaptureBackend
@@ -508,6 +509,7 @@ final class CaptureViewModel {
     }
 
     func exportCSV(to url: URL) {
+        guard LicenseManager.shared.requireLicense() else { return }
         let rows = filteredPackets
         var lines = [Self.exportColumns.joined(separator: ",")]
         for p in rows {
@@ -525,6 +527,7 @@ final class CaptureViewModel {
     }
 
     func exportJSON(to url: URL) {
+        guard LicenseManager.shared.requireLicense() else { return }
         let rows = filteredPackets
         let objects: [[String: Any]] = rows.map { p in
             var d: [String: Any] = [
@@ -561,6 +564,7 @@ final class CaptureViewModel {
     }
 
     func exportSelectedPacketText(to url: URL) {
+        guard LicenseManager.shared.requireLicense() else { return }
         guard let selectedPacket else { return }
         do {
             try Self.packetDetailText(selectedPacket).write(to: url, atomically: true, encoding: .utf8)
@@ -592,6 +596,7 @@ final class CaptureViewModel {
     }
 
     private func savePcapPackets(_ packets: [PacketModel], to url: URL, label: String) {
+        guard LicenseManager.shared.requireLicense() else { return }
         let toSave = packets
         Task {
             do {
@@ -643,6 +648,7 @@ final class CaptureViewModel {
     // Bounded tcpdump in the Docker VM host netns, then loads the pcap; nil filter = auto-detect.
     func captureDockerContainers(seconds: Int = 10, maxPackets: Int = 8000,
                                  filter: String? = nil) {
+        guard LicenseManager.shared.requireLicense() else { return }
         guard !isDockerCapturing else { return }
         if isCapturing { stopCapture() }   // free the pipeline so the pcap can load
         isDockerCapturing = true
@@ -674,6 +680,7 @@ final class CaptureViewModel {
 
     // Streams tcpdump from the Docker VM into the table until Stop; nil filter = auto-detect.
     func startDockerLiveCapture(filter: String? = nil) {
+        guard LicenseManager.shared.requireLicense() else { return }
         guard !isCapturing, !isDockerCapturing, !isDockerLive else { return }
         guard let docker = Self.dockerPath() else {
             statusMessage = "Docker CLI not found"

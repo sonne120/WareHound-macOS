@@ -67,7 +67,7 @@ This builds libsniffer and a Release app, **copies `libsniffer.dylib` into
 `Frameworks/` and into `WareHound.app/Contents/Frameworks`** (so the app runs on
 other Macs), signs it, and packages a DMG with an *Applications* shortcut.
 
-The GitHub workflow [`.github/workflows/build-dmg.yml`](../.github/workflows/build-dmg.yml)
+The GitHub workflow [`.github/workflows/build-dmg.yml`](.github/workflows/build-dmg.yml)
 runs the same script on every push, pull request and `v*` tag:
 - the DMG is uploaded as a build **artifact** (Actions tab → run → *Artifacts*);
 - pushing a tag such as `v1.0.0` also attaches the DMG to a **GitHub Release**.
@@ -203,20 +203,68 @@ then in Follow Stream press **Choose SSLKEYLOGFILE…** → **Decrypt**, and tur
 
 ### Docker container capture
 
-The **Docker** button (📦 box icon) in the Capture toolbar captures traffic between your
-containers:
-- **Click** — live capture of all container traffic until you press Stop.
-- **Menu** — timed captures (5 / 10 / 30 s) or presets: Common services,
-  Databases (SQL/Mongo), Messaging (Kafka/Redis), HTTP, All TCP.
-- **Ports only (quieter)** — capture only exposed/published ports.
-- **Edit protocol labels…** — name custom ports (e.g. `8000 → Kafka`).
+WareHound can capture the traffic **between your Docker containers**. On macOS,
+Docker Desktop runs containers inside a Linux VM, so their traffic never appears
+on the Mac's interfaces (`en0`, …). WareHound starts a small helper container
+(`nicolaka/netshoot`, running `tcpdump` with `--net=host --privileged`) inside
+that VM and streams the packets back into the app.
 
-Command-line alternative, which writes a `.pcap` and opens it:
+**Before you start**
+1. Start **Docker Desktop** and your containers (`docker ps` should list them).
+2. Optional, recommended: download the helper image once so the first capture
+   doesn't wait for it:
+   ```bash
+   docker pull nicolaka/netshoot
+   ```
+3. No BPF access or `sudo` is needed: the capture runs inside Docker, not on
+   your Mac's kernel.
+
+**Live capture.** In the Capture toolbar, click **📦 Containers**:
+1. WareHound detects your Docker networks and captures **all** container
+   traffic live, including containers that expose no ports.
+2. Use your services (API calls, queries, …). Packets appear in real time, and
+   container IPs are shown with their **container names** (e.g. `api → postgres`).
+3. Press **Stop Capture** (⌘R). The helper container is stopped as well.
+
+**Timed capture.** **Containers ▾ → Auto-detect · bounded window →
+Capture 5 s / 10 s / 30 s** records for a fixed time and then loads the result.
+Use it for busy setups so the capture stays small.
+
+**Specific services.** **Containers ▾ → Filter preset (10 s):**
+
+| Preset | Ports |
+|---|---|
+| Common services | 6379, 9092, 29092, 8080, 8000, 5432, 3306, 27017, 5001 |
+| Databases (SQL/Mongo) | 5432, 3306, 27017, 1433 |
+| Messaging (Kafka/Redis) | 9092, 29092, 6379 |
+| HTTP | 8080, 8000, 5001, 8081 |
+| All TCP | all TCP traffic |
+
+**Other options in the menu**
+- **Ports only (quieter)**: when on, captures only the containers'
+  exposed/published ports, skipping health checks and heartbeats. When off
+  (default), captures everything on the Docker bridge networks.
+- **Edit protocol labels…**: names custom ports in the Protocol column
+  (e.g. `8000 → Kafka`, `5001 → My API`).
+
+After capturing, everything works as usual: display filter (e.g.
+`port == 5432`), **Follow Stream**, **Statistics**, **Save pcap** / **Export**.
+
+**Command-line alternative.** `WareHound-macOS/scripts/capture-containers.sh`
+writes a `.pcap` to your home folder; open it with **Open pcap**:
 
 ```bash
-scripts/capture-containers.sh [seconds] [maxPackets] [bpf filter...]
-scripts/capture-containers.sh 20 10000 tcp port 9092 or tcp port 6379
+WareHound-macOS/scripts/capture-containers.sh [seconds] [maxPackets] [bpf filter...]
+WareHound-macOS/scripts/capture-containers.sh 20 10000 tcp port 9092 or tcp port 6379
 ```
+
+**Troubleshooting**
+
+| Problem | Fix |
+|---|---|
+| "Docker CLI not found" | Install or start Docker Desktop. WareHound looks for `docker` in `/usr/local/bin`, `/opt/homebrew/bin` and inside Docker.app. |
+| No packets appear | Check the containers are running and sending traffic during the capture. |
+| First capture is slow | It's downloading `nicolaka/netshoot`; run `docker pull nicolaka/netshoot` once. |
 
 ### Files and export (window toolbar)
 
@@ -264,8 +312,8 @@ WAREHOUND_DEVELOPMENT_TEAM=<TEAMID> ./run_tunnel_build.sh
 
 This switches the app's backend to Tunnel, does a signed build, relaunches the
 app and sends ⌘R. Full setup (entitlements, App Group) is in
-[PacketTunnel/SETUP.md](PacketTunnel/SETUP.md) and
-[PacketTunnel/README.md](PacketTunnel/README.md).
+[PacketTunnel/SETUP.md](WareHound-macOS/PacketTunnel/SETUP.md) and
+[PacketTunnel/README.md](WareHound-macOS/PacketTunnel/README.md).
 
 ---
 

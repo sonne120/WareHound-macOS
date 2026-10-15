@@ -63,6 +63,7 @@ final class PacketCollectionService {
     }
 
     func exportToCsv(collectionId: String, to url: URL) {
+        guard LicenseManager.shared.requireLicense() else { return }
         guard let c = collections.first(where: { $0.id == collectionId }) else { return }
 
         var lines = ["Number,Time,Protocol,SourceIP,DestIP,SourcePort,DestPort,SourceMAC,DestMAC,HostName"]
@@ -215,6 +216,7 @@ final class DashboardViewModel {
     }
 
     func exportToCsv() {
+        guard LicenseManager.shared.requireLicense() else { return }
         guard let c = selectedCollection else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.commaSeparatedText]

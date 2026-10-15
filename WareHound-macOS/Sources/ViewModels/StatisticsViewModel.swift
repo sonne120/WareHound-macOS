@@ -284,6 +284,7 @@ final class StatisticsViewModel {
     }
 
     func exportReportCSV(to url: URL) {
+        guard LicenseManager.shared.requireLicense() else { return }
         var rows: [[String]] = []
         rows.append(["Section", "Name", "Value", "Extra"])
         rows.append(["Overview", "Packets", "\(totalPackets)", ""])
@@ -335,6 +336,7 @@ final class StatisticsViewModel {
     }
 
     func exportReportJSON(to url: URL) {
+        guard LicenseManager.shared.requireLicense() else { return }
         let object: [String: Any] = [
             "overview": [
                 "packets": totalPackets,

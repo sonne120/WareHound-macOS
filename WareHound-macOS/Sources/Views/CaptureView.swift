@@ -1391,6 +1391,7 @@ struct MainWindow: View {
     @State private var logVM = LogViewModel()
     @State private var section: AppSection = .capture
     @Bindable private var settings = SettingsViewModel.shared
+    @State private var license = LicenseManager.shared
 
     init() {
         let capture = CaptureViewModel()
@@ -1414,7 +1415,11 @@ struct MainWindow: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 22)
-                .padding(.bottom, 12)
+                .padding(.bottom, 8)
+
+                licenseBadge
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
 
                 List(AppSection.allCases, selection: $section) { s in
                     Label(s.rawValue, systemImage: s.icon).tag(s)
@@ -1435,6 +1440,32 @@ struct MainWindow: View {
         .tint(AppColors.accent)
         .preferredColorScheme(settings.darkModeEnabled ? .dark : .light)
         .navigationTitle("WareHound")
+        .sheet(isPresented: $license.isLicenseSheetPresented) { LicenseView() }
+        .onAppear {
+            if !license.isUsable { license.isLicenseSheetPresented = true }
+        }
+    }
+
+    private var licenseBadge: some View {
+        let color: Color = switch license.status {
+        case .licensed: AppColors.success
+        case .trial: AppColors.accent
+        case .trialExpired, .clockRolledBack, .tampered: AppColors.error
+        }
+        return Button {
+            license.isLicenseSheetPresented = true
+        } label: {
+            Text(license.statusText)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .foregroundStyle(color)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(color.opacity(0.12), in: Capsule())
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .help("Manage your WareHound license")
     }
 
     @ToolbarContentBuilder

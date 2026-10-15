@@ -18,3 +18,7 @@ WareHound-macOS/Frameworks/*.dylib
 # Xcode per-user state
 xcuserdata/
 *.xcodeproj.bak/
+
+# Never commit license signing keys
+license_signing_key
+*.signing_key

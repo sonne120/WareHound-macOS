@@ -15,6 +15,7 @@
 		22FF40FB85710917DF2F619D /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F69A336F9F6CA9870714CE /* DashboardView.swift */; };
 		281184E73004293500F3E931 /* DockerLiveCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 281184E63004293500F3E931 /* DockerLiveCaptureService.swift */; };
 		281184E9300436AE00F3E931 /* PortLabelEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 281184E8300436AE00F3E931 /* PortLabelEditorView.swift */; };
+		A55E7C47A55E7C47A55E000A /* LicenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55E7C47A55E7C47A55E0009 /* LicenseView.swift */; };
 		376FA2A13C897F04CE109DBB /* PacketModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A139B62A5293CEB7B73619E /* PacketModel.swift */; };
 		38A630925C10A6EB3B222CC4 /* LoggerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894D3DB5A5D3061B57A72E77 /* LoggerService.swift */; };
 		3E1A7D8DEE29EF3065CD5EEE /* PcapFileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB1DFA651A9CAA91CB220F9 /* PcapFileService.swift */; };
@@ -24,6 +25,7 @@
 		4F65322749C5BA39E9EFA833 /* StatisticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A43D6EAD9BB83E8FAA7FD1F8 /* StatisticsViewModel.swift */; };
 		6A21EA4712DE81AECDC0DDA9 /* NativeStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF8BCD4F9D4DDE2C7B5AC64 /* NativeStats.swift */; };
 		7DA5771B3727E9325A301533 /* TunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AD81BF793F37265FAE2D31C /* TunnelController.swift */; };
+		A55E7C47A55E7C47A55E0008 /* LicenseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55E7C47A55E7C47A55E0007 /* LicenseManager.swift */; };
 		A55E7C47A55E7C47A55E0006 /* BpfAccessInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55E7C47A55E7C47A55E0005 /* BpfAccessInstaller.swift */; };
 		91BBA7503E044908EC568156 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A36E2BCDB8A1F1B25FE536A0 /* AppColors.swift */; };
 		A1A1A1A1A1A1A1A1A1A10001 /* StreamFollowService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A1A1A1A10002 /* StreamFollowService.swift */; };
@@ -73,11 +75,13 @@
 		281184DB3003CF3500F3E931 /* WareHoundTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WareHoundTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		281184E63004293500F3E931 /* DockerLiveCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerLiveCaptureService.swift; sourceTree = "<group>"; };
 		281184E8300436AE00F3E931 /* PortLabelEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortLabelEditorView.swift; sourceTree = "<group>"; };
+		A55E7C47A55E7C47A55E0009 /* LicenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseView.swift; sourceTree = "<group>"; };
 		28B26102DFB9ED05A6D0D321 /* WareHoundTunnel.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WareHoundTunnel.entitlements; sourceTree = "<group>"; };
 		3A139B62A5293CEB7B73619E /* PacketModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketModel.swift; sourceTree = "<group>"; };
 		3A22FA85BF7BCEC171DF355A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		41B831ECFF8A983EA19E1819 /* PacketDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketDetailView.swift; sourceTree = "<group>"; };
 		5AD81BF793F37265FAE2D31C /* TunnelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelController.swift; sourceTree = "<group>"; };
+		A55E7C47A55E7C47A55E0007 /* LicenseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseManager.swift; sourceTree = "<group>"; };
 		A55E7C47A55E7C47A55E0005 /* BpfAccessInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BpfAccessInstaller.swift; sourceTree = "<group>"; };
 		5DB1DFA651A9CAA91CB220F9 /* PcapFileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PcapFileService.swift; sourceTree = "<group>"; };
 		7E17ADFD5F9E584969AE8CA0 /* pcap_shim.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pcap_shim.h; sourceTree = "<group>"; };
@@ -219,6 +223,7 @@
 				A1A1A1A1A1A1A1A1A1A10012 /* FollowStreamView.swift */,
 				D929D6A8A926723FFFB9D879 /* StatisticsView.swift */,
 				281184E8300436AE00F3E931 /* PortLabelEditorView.swift */,
+				A55E7C47A55E7C47A55E0009 /* LicenseView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -251,6 +256,7 @@
 			children = (
 				894D3DB5A5D3061B57A72E77 /* LoggerService.swift */,
 				5AD81BF793F37265FAE2D31C /* TunnelController.swift */,
+				A55E7C47A55E7C47A55E0007 /* LicenseManager.swift */,
 				A55E7C47A55E7C47A55E0005 /* BpfAccessInstaller.swift */,
 				281184E63004293500F3E931 /* DockerLiveCaptureService.swift */,
 			);
@@ -453,6 +459,7 @@
 				376FA2A13C897F04CE109DBB /* PacketModel.swift in Sources */,
 				38A630925C10A6EB3B222CC4 /* LoggerService.swift in Sources */,
 				7DA5771B3727E9325A301533 /* TunnelController.swift in Sources */,
+				A55E7C47A55E7C47A55E0008 /* LicenseManager.swift in Sources */,
 				A55E7C47A55E7C47A55E0006 /* BpfAccessInstaller.swift in Sources */,
 				6A21EA4712DE81AECDC0DDA9 /* NativeStats.swift in Sources */,
 				0F4CB9183DE4C6FCC4A57080 /* PacketParser.swift in Sources */,
@@ -460,6 +467,7 @@
 				A1A1A1A1A1A1A1A1A1A10011 /* FollowStreamView.swift in Sources */,
 				3E1A7D8DEE29EF3065CD5EEE /* PcapFileService.swift in Sources */,
 				281184E9300436AE00F3E931 /* PortLabelEditorView.swift in Sources */,
+				A55E7C47A55E7C47A55E000A /* LicenseView.swift in Sources */,
 				CC27FD6B77708D3C3453FDD9 /* SnapshotWire.swift in Sources */,
 				B0A802D2BEEDB05154C37ADC /* SnifferBridge.swift in Sources */,
 				44A1DF4637954C52E605783E /* CaptureViewModel.swift in Sources */,
