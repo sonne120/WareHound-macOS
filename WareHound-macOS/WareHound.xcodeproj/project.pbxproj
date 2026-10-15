@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A55E7C47A55E7C47A55E0002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A55E7C47A55E7C47A55E0001 /* Assets.xcassets */; };
 		036BAF683268196D636AB843 /* WareHoundTunnel.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 972D5293512600D19AF6B672 /* WareHoundTunnel.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0F4CB9183DE4C6FCC4A57080 /* PacketParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2CC22DEF26721435115CC43 /* PacketParser.swift */; };
 		141C34188609F74EEC7FB3EB /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9D00123DB1DA26DD81DE29E /* DashboardViewModel.swift */; };
@@ -65,6 +66,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A55E7C47A55E7C47A55E0001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		047D329E8817B2B511F1C313 /* SnifferBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnifferBridge.swift; sourceTree = "<group>"; };
 		18F69A336F9F6CA9870714CE /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		281184DB3003CF3500F3E931 /* WareHoundTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WareHoundTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -235,6 +237,7 @@
 				958B6263A0B70C847CDA462B /* Sources */,
 				53BE21EAC82DD446B795F732 /* PacketTunnel */,
 				B02593FBEC5B74A92BD1D519 /* CSniffer */,
+				A55E7C47A55E7C47A55E0001 /* Assets.xcassets */,
 				D2DA782489C6535826F8F1E2 /* WareHound.entitlements */,
 				281184DC3003CF3500F3E931 /* WareHoundTests */,
 				328EC33DF3954DC9B83FA285 /* Products */,
@@ -374,6 +377,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A55E7C47A55E7C47A55E0002 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -444,6 +448,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = WareHound.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -661,6 +666,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = WareHound.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
