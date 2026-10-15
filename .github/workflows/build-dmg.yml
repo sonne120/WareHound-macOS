@@ -62,18 +62,17 @@ jobs:
       - name: Build libsniffer, app and DMG
         id: build
         run: |
-          chmod +x WareHound-macOS/scripts/make_dmg.sh
-          WareHound-macOS/scripts/make_dmg.sh
+          zsh WareHound-macOS/scripts/make_dmg.sh
 
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: xcodebuild-log
           path: WareHound-macOS/build/xcodebuild.log
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: WareHound-${{ env.VERSION }}-dmg
           path: ${{ steps.build.outputs.dmg }}
