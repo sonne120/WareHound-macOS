@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Archives
+*.zip
+
+# Build output
+build/
+**/build-*/
+.build/
+DerivedData/
+WareHound-macOS/dist/
+**/rust/snet/target/
+
+# libsniffer is built by build_app.sh / scripts/make_dmg.sh / CI
+WareHound-macOS/Frameworks/*.dylib
+
+# Xcode per-user state
+xcuserdata/
+*.xcodeproj.bak/
