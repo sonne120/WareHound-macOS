@@ -1,16 +1,4 @@
-#!/bin/zsh
-# make_dmg.sh — build libsniffer + WareHound (Release, pcap-local) and package
-# a distributable WareHound-<version>.dmg. Used by .github/workflows/build-dmg.yml
-# and runnable locally.
-#
-# Env (all optional):
-#   VERSION                   DMG version label (default: short git SHA or "dev")
-#   SIGN_IDENTITY             e.g. "Developer ID Application: Name (TEAMID)";
-#                             unset → ad-hoc signature
-#   APPLE_ID, APPLE_APP_PASSWORD, APPLE_TEAM_ID
-#                             all set (and SIGN_IDENTITY set) → notarize + staple
-#
-# Output: WareHound-macOS/dist/WareHound-<version>.dmg
+
 set -euo pipefail
 
 cd "$(dirname "$0")/.."            # WareHound-macOS/
@@ -31,7 +19,7 @@ cmake -S "$SNIFFER_DIR" -B "$SNIFFER_BUILD" \
 cmake --build "$SNIFFER_BUILD" --target sniffer -j
 
 echo "==> [2/6] Copying libsniffer.dylib into Frameworks/"
-mkdir -p "$ROOT/Frameworks"
+mkdir -p "$ROOT/Frameworks" "$ROOT/build"
 cp "$SNIFFER_BUILD/libsniffer.dylib" "$ROOT/Frameworks/libsniffer.dylib"
 
 echo "==> [3/6] Building WareHound.app (Release)"
@@ -43,7 +31,14 @@ xcodebuild \
   -derivedDataPath "$DERIVED" \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
   CODE_SIGNING_ALLOWED=NO \
-  build | tail -n 5
+  build > "$ROOT/build/xcodebuild.log" 2>&1 || {
+    echo "xcodebuild failed. Errors:" >&2
+    grep -E "error:|\*\* BUILD FAILED|The following build commands failed" -A2 "$ROOT/build/xcodebuild.log" | head -60 >&2
+    echo "--- last 30 lines of build/xcodebuild.log ---" >&2
+    tail -n 30 "$ROOT/build/xcodebuild.log" >&2
+    exit 65
+  }
+tail -n 3 "$ROOT/build/xcodebuild.log"
 
 APP="$DERIVED/Build/Products/Release/WareHound.app"
 [[ -d "$APP" ]] || { echo "error: $APP not found" >&2; exit 1; }

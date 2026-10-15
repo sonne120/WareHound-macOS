@@ -23,7 +23,7 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -64,6 +64,14 @@ jobs:
         run: |
           chmod +x WareHound-macOS/scripts/make_dmg.sh
           WareHound-macOS/scripts/make_dmg.sh
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: WareHound-macOS/build/xcodebuild.log
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
