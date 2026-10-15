@@ -1,0 +1,1 @@
+/Users/vitah/repo/WareHound_mac/Sniffer/libsniffer/rust/snet/target/release/libsnet.a: /Users/vitah/repo/WareHound_mac/Sniffer/libsniffer/rust/snet/src/inspect.rs /Users/vitah/repo/WareHound_mac/Sniffer/libsniffer/rust/snet/src/lib.rs /Users/vitah/repo/WareHound_mac/Sniffer/libsniffer/rust/snet/src/stack.rs

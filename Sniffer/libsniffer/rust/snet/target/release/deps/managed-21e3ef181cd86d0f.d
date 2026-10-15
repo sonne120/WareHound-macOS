@@ -1,0 +1,11 @@
+/Users/vitah/repo/WareHound_mac/Sniffer/libsniffer/rust/snet/target/release/deps/managed-21e3ef181cd86d0f.d: /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/lib.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/object.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/slice.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/slotmap.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/map.rs
+
+/Users/vitah/repo/WareHound_mac/Sniffer/libsniffer/rust/snet/target/release/deps/libmanaged-21e3ef181cd86d0f.rlib: /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/lib.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/object.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/slice.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/slotmap.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/map.rs
+
+/Users/vitah/repo/WareHound_mac/Sniffer/libsniffer/rust/snet/target/release/deps/libmanaged-21e3ef181cd86d0f.rmeta: /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/lib.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/object.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/slice.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/slotmap.rs /Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/map.rs
+
+/Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/lib.rs:
+/Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/object.rs:
+/Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/slice.rs:
+/Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/slotmap.rs:
+/Users/vitah/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/managed-0.8.0/src/map.rs:

@@ -1,0 +1,34 @@
+[package]
+name = "snet"
+version = "0.1.0"
+edition = "2021"
+description = "WareHound tunnel networking core: smoltcp forward + L7 event emit, exposed over C FFI"
+
+[lib]
+name = "snet"
+# staticlib only: baked directly into libsniffer.dylib so snet_* symbols are
+# defined in-image and there is a single self-contained dylib to embed in the
+# app / NE extension. (A cdylib made Corrosion link libsnet.dylib dynamically
+# at an absolute build path, leaving snet_* undefined after embedding.)
+crate-type = ["staticlib"]
+
+[dependencies]
+# TCP/IP stack that terminates connections inside the process. Feature set is
+# trimmed: we drive it from a custom device (the tunnel), not a real NIC.
+smoltcp = { version = "0.11", default-features = false, features = [
+    "std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp",
+] }
+
+# L7 inspection (safe parsers — the whole point of using Rust here).
+tls-parser = "0.11"      # SNI / version / offered ciphers from ClientHello
+# dns-parser or hickory-proto for DNS; pick one when wiring inspect.rs.
+
+# Lock-free handoff from the push thread(s) to the poll thread, if you prefer
+# not to reuse the C++ ring buffer for the internal queue.
+crossbeam-channel = "0.5"
+
+[profile.release]
+lto = true
+# Keep the default panic = "unwind". catch_unwind at every FFI export needs the
+# unwinding runtime to actually catch a panic instead of aborting the whole
+# NetworkExtension process. Do NOT set panic = "abort" here.

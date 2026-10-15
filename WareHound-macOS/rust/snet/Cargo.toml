@@ -1,0 +1,19 @@
+[package]
+name = "snet"
+version = "0.1.0"
+edition = "2021"
+description = "WareHound tunnel networking core: smoltcp forward + L7 event emit, exposed over C FFI"
+
+[lib]
+name = "snet"
+crate-type = ["staticlib"]
+
+[dependencies]
+smoltcp = { version = "0.11", default-features = false, features = [
+	"std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp",
+] }
+tls-parser = "0.11"
+crossbeam-channel = "0.5"
+
+[profile.release]
+lto = true

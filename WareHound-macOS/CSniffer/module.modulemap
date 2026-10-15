@@ -1,0 +1,15 @@
+module CSniffer {
+    header "include/sniffer_ipc.h"
+    header "include/statistic_exports.h"
+    header "include/statistic_l7_exports.h"
+    header "include/reassembly.h"
+    link "sniffer"
+    link "pcap"
+    export *
+}
+
+module CPcap [system] {
+    header "include/pcap_shim.h"
+    link "pcap"
+    export *
+}
