@@ -482,12 +482,61 @@ struct SettingsView: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if settings.selectedCaptureBackend == .pcap {
+                bpfInstallControls
+            }
+
             tunnelBuildStatus
 
             if settings.selectedCaptureBackend == .tunnel {
                 Label("SNI/DNS L7 analytics active (see Statistics). Full online tunnel forwarding needs the Network Extension.",
                       systemImage: "sparkle.magnifyingglass")
                     .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var bpfInstallControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                if settings.bpfAccessStatus.isAvailable && settings.isBpfDaemonInstalled {
+                    Label("BPF access installed", systemImage: "checkmark.seal.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.success)
+                } else {
+                    Button {
+                        Task { await settings.installBpfAccess() }
+                    } label: {
+                        Label("Install BPF access…", systemImage: "lock.open.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+
+                if settings.isBpfDaemonInstalled || settings.bpfAccessStatus.isAvailable {
+                    Button("Remove…") {
+                        Task { await settings.removeBpfAccess() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if settings.isBpfInstallerRunning {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            .disabled(settings.isBpfInstallerRunning)
+            .frame(maxWidth: .infinity)
+
+            Text("Asks for your admin password, adds you to the access_bpf group, opens /dev/bpf* to that group and installs a LaunchDaemon that re-applies it at every boot.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let message = settings.bpfInstallerMessage {
+                Text(message)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppColors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

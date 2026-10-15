@@ -143,6 +143,9 @@ final class SettingsViewModel {
         didSet { UserDefaults.standard.set(captureFilter, forKey: "captureFilter") }
     }
     private(set) var bpfAccessStatus = BpfAccessStatus()
+    private(set) var isBpfDaemonInstalled = false
+    private(set) var isBpfInstallerRunning = false
+    private(set) var bpfInstallerMessage: String?
 
     static let protocolColorTypes = ["TCP", "UDP", "TLS", "HTTPS", "QUIC", "HTTP",
                                      "DNS", "MDNS", "DHCP", "ICMP", "ARP"]
@@ -253,7 +256,38 @@ final class SettingsViewModel {
         refreshBpfAccessStatus()
     }
 
+    func installBpfAccess() async {
+        await runBpfInstaller(BpfAccessInstaller.install) { status in
+            status.isAvailable
+                ? "BPF access installed. Live capture is ready."
+                : "Installed. Log out and back in so macOS applies the new access_bpf group membership."
+        }
+    }
+
+    func removeBpfAccess() async {
+        await runBpfInstaller(BpfAccessInstaller.uninstall) { _ in
+            "BPF access removed. Log out and back in to drop the access_bpf group membership."
+        }
+    }
+
+    private func runBpfInstaller(_ action: () async throws -> Void,
+                                 message: (BpfAccessStatus) -> String) async {
+        isBpfInstallerRunning = true
+        bpfInstallerMessage = nil
+        defer { isBpfInstallerRunning = false }
+        do {
+            try await action()
+            refreshBpfAccessStatus()
+            bpfInstallerMessage = message(bpfAccessStatus)
+        } catch BpfAccessInstaller.Failure.cancelled {
+            bpfInstallerMessage = nil
+        } catch {
+            bpfInstallerMessage = "Failed: \(error.localizedDescription)"
+        }
+    }
+
     func refreshBpfAccessStatus() {
+        isBpfDaemonInstalled = BpfAccessInstaller.isDaemonInstalled
         let deviceNames = (try? FileManager.default.contentsOfDirectory(atPath: "/dev")) ?? []
         let bpfPaths = deviceNames
             .filter { $0.hasPrefix("bpf") }
@@ -274,7 +308,7 @@ final class SettingsViewModel {
         let writable = bpfPaths.contains { FileManager.default.isWritableFile(atPath: $0) }
         let accessDetail = readable && writable
             ? "Found \(bpfPaths.count) BPF device(s). Live libpcap capture should be able to open a BPF device."
-            : "Found \(bpfPaths.count) BPF device(s), but this app cannot read/write them. Use Wireshark's ChmodBPF helper, join the access_bpf group, or run the app with elevated privileges for development."
+            : "Found \(bpfPaths.count) BPF device(s), but this app cannot read/write them. Press Install BPF access… to grant it."
 
         bpfAccessStatus = BpfAccessStatus(
             deviceCount: bpfPaths.count,
