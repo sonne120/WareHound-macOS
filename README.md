@@ -295,7 +295,7 @@ WareHound-macOS/scripts/capture-containers.sh 20 10000 tcp port 9092 or tcp port
 ## Project layout
 
 ```
-Sniffer/libsniffer/      C++ capture core: libpcap, reassembly, TLS/QUIC decryption, HTTP traceker
+Sniffer/libsniffer/      C++ capture core: libpcap, reassembly, TLS/QUIC decryption, HTTP tracker
 WareHound-macOS/
   Sources/Views/         SwiftUI screens
   Sources/ViewModels/    UI state and logic
@@ -306,3 +306,17 @@ WareHound-macOS/
   scripts/               ChmodBPF helper, Docker capture script, DMG packaging
   build_app.sh           main build script
 ```
+
+## License and copyright
+
+Copyright © 2025 [sonne120](https://github.com/sonne120). All rights reserved.
+
+WareHound is proprietary software. The app runs as a free 10-day trial; after
+that a license key is required, which you enter in the app's license dialog
+(click the license badge at the top of the sidebar). The source code is published
+in this repository for reference and review only. No permission is granted to
+copy, modify, redistribute, or sell WareHound or any part of it, in source or
+binary form, without the written consent of the author.
+
+WareHound links against libpcap and libz from macOS, and against OpenSSL,
+nghttp2 and the `nicolaka/netshoot` Docker image, each under its own license.
