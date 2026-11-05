@@ -178,8 +178,10 @@ application's icon and name on every row, as in the picture.
 To turn the App column off, or back on, use either of these. Both remember the
 choice across launches:
 
-- **Columns** menu in the Capture toolbar: untick **App**.
+- **Columns** menu in the Capture toolbar: untick **App**, as in the picture below.
 - **Settings**, **Packet columns** card: switch off **App**.
+
+![Columns menu in the Capture toolbar with App unticked and Time and Source ticked](image_6.png)
 
 The **Apps** menu above the table lists every application seen so far with its
 packet count and bytes, largest first. Click an app to show only its traffic; the
@@ -266,14 +268,17 @@ inside that VM and streams the packets back into the app. No BPF access or
 `sudo` is needed for this mode.
 
 > [!IMPORTANT]
-> **Capturing Docker containers?** Switch the **Interface** picker at the left of
-> the toolbar to the `bridge` interface first. Leave it on `en0` and you will see
-> your Mac's own traffic, not the containers'. The toolbar should look like this,
-> with `bridge0` selected, before you click **Containers**:
+> **Capturing Docker containers?** Two steps, both shown in the picture below:
 >
-> ![Capture toolbar with the Interface picker set to bridge0](image_4.png)
+> 1. Switch the **Interface** picker at the left of the toolbar to the `bridge`
+>    interface. Leave it on `en0` and you will see your Mac's own traffic, not
+>    the containers'.
+> 2. Open the **Containers** menu (the arrow next to the button) and choose
+>    **Live capture — until Stop**.
 >
-> Then click **Containers** and the container traffic streams in.
+> ![Capture toolbar with the Interface picker set to bridge0 and the Containers menu open on "Live capture — until Stop"](image_4.png)
+>
+> Container traffic then streams in until you press **Stop Capture**.
 
 The screenshot shows a capture of a Kafka/MySQL stack: the **Protocol** column
 labels port 3306 as MySQL, and the **Info** column resolves container IPs to
@@ -290,9 +295,10 @@ together with the MySQL server version seen in the greeting.
    ```
 
 **Live capture.** Select the `bridge` interface in the **Interface** picker, then
-click **Containers** in the Capture toolbar. WareHound detects the Docker bridge
-networks and captures all container traffic, including containers that expose
-no ports, until you press **Stop Capture**.
+open the **Containers** menu and choose **Live capture — until Stop** (clicking
+the **Containers** button itself does the same). WareHound detects the Docker
+bridge networks and captures all container traffic, including containers that
+expose no ports, until you press **Stop Capture**.
 
 **Timed capture.** Open the **Containers** menu and pick
 **Auto-detect · bounded window → Capture 5 s / 10 s / 30 s** to record for a
