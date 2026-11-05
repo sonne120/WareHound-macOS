@@ -336,33 +336,6 @@ WareHound-macOS/scripts/capture-containers.sh 20 10000 tcp port 9092 or tcp port
   capture filter (for example `tcp port 443`), packet buffer size, BPF access,
   and HTTPS decryption.
 
-## Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| "WareHound is damaged" or "developer cannot be verified" after installing the DMG | Run `xattr -dr com.apple.quarantine /Applications/WareHound.app` once, then launch again. |
-| `library not found for -lsniffer` | Run `./build_app.sh`; it builds and copies the dylib. |
-| Interface list empty, or capture fails with a permission error | Install BPF access in Settings, then log out and back in. |
-| BPF access lost after a reboot | The LaunchDaemon is missing. Press **Install BPF access…** again. |
-| "Docker CLI not found" | Install or start Docker Desktop. WareHound looks for `docker` in `/usr/local/bin`, `/opt/homebrew/bin` and inside Docker.app. |
-| Docker capture shows nothing | Make sure the containers are running and sending traffic during the capture. |
-| First Docker capture is slow | It is downloading `nicolaka/netshoot`. Pull it once beforehand. |
-
-## Project layout
-
-```
-Sniffer/libsniffer/      C++ capture core: libpcap, reassembly, TLS/QUIC decryption, HTTP tracker
-WareHound-macOS/
-  Sources/Views/         SwiftUI screens
-  Sources/ViewModels/    UI state and logic
-  Sources/Sniffer/       libsniffer bridge, pcap file I/O, packet parser, stream follower
-  Sources/Services/      logging, Docker capture, BPF access installer
-  CSniffer/              module map and C headers for libsniffer
-  Frameworks/            libsniffer.dylib, built by build_app.sh
-  scripts/               ChmodBPF helper, Docker capture script, DMG packaging
-  build_app.sh           main build script
-```
-
 ## License and copyright
 
 Copyright © 2025 [sonne120](https://github.com/sonne120). All rights reserved.
