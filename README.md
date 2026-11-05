@@ -18,7 +18,7 @@ history, and decrypt TLS.
 > Repeat it after installing a newer DMG. Live capture also needs one-time BPF
 > access, described in [Kernel access for capture](#kernel-access-for-capture-one-time).
 
-![Capture view: live traffic on en0 with TLS, HTTPS and QUIC packets](image_1.png)
+![Capture view: live traffic on en0 with TLS, HTTPS and QUIC packets](images/image_1.png)
 
 ## Requirements
 
@@ -60,7 +60,7 @@ card shown below. Click **Install BPF access…** (the button sits where the gre
 administrator password once, the badge turns green, and live capture is ready to
 run.
 
-![Settings, Capture backend card: libpcap / BPF selected, BPF access installed, Remove button](image_3.png)
+![Settings, Capture backend card: libpcap / BPF selected, BPF access installed, Remove button](images/image_3.png)
 
 The **Packet Tunnel unavailable** box in the same card can be ignored. It only
 concerns signed builds, and libpcap / BPF is the backend this guide uses.
@@ -75,38 +75,6 @@ The installer then:
 Log out and back in once so your session picks up the new group. The same card
 shows the device count and whether the devices are readable and writable, and
 **Remove…** undoes the installation.
-
-**By hand.** The equivalent shell steps. Run them from the root of this
-repository, the folder that contains `WareHound-macOS/`, because the `cp` lines
-use paths relative to it:
-
-```sh
-cd /path/to/WareHound_mac   # your clone of this repository
-
-# 1. Group: create it only if it does not exist yet, then join it.
-dseditgroup -o read access_bpf >/dev/null 2>&1 || sudo dseditgroup -o create access_bpf
-sudo dseditgroup -o edit -a "$USER" -t user access_bpf
-
-# 2. Boot-time helper that opens /dev/bpf* to the group.
-sudo mkdir -p "/Library/Application Support/WareHound"
-sudo cp WareHound-macOS/scripts/warehound-chmod-bpf.sh "/Library/Application Support/WareHound/"
-sudo chmod 755 "/Library/Application Support/WareHound/warehound-chmod-bpf.sh"
-sudo cp WareHound-macOS/scripts/org.warehound.ChmodBPF.plist /Library/LaunchDaemons/
-sudo chown root:wheel /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
-sudo chmod 644 /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
-
-# 3. Start it now; it also runs at every boot.
-sudo launchctl bootstrap system /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
-```
-
-Check the result with `ls -l /dev/bpf0`. It should show `crw-rw----` and the
-group `access_bpf`. Log out and back in once so your session picks up the group.
-
-The manual steps install the daemon `org.warehound.ChmodBPF`, while the in-app
-installer uses `com.warehound.chmodbpf`. Either one is enough; you do not need
-both. Wireshark's ChmodBPF helper does the same job if you already have it.
-As a quick test you can also run the binary with `sudo`, but the app then writes
-its settings as root.
 
 ## Capture
 
@@ -169,7 +137,7 @@ turns blue while a router filter is active.
 
 ### App column and the Apps menu
 
-![Capture table with the App column and the open Apps menu listing Google Chrome, claude, Slack, Visual Studio Code, Claude and Spotify with packet counts and bytes](image_5.png)
+![Capture table with the App column and the open Apps menu listing Google Chrome, claude, Slack, Visual Studio Code, Claude and Spotify with packet counts and bytes](images/image_5.png)
 
 During a live capture of your Mac's own traffic, WareHound looks up which local
 process owns each TCP or UDP flow. The **App** column, on by default, shows that
@@ -181,7 +149,7 @@ choice across launches:
 - **Columns** menu in the Capture toolbar: untick **App**, as in the picture below.
 - **Settings**, **Packet columns** card: switch off **App**.
 
-![Columns menu in the Capture toolbar with App unticked and Time and Source ticked](image_6.png)
+![Columns menu in the Capture toolbar with App unticked and Time and Source ticked](images/image_6.png)
 
 The **Apps** menu above the table lists every application seen so far with its
 packet count and bytes, largest first. Click an app to show only its traffic; the
@@ -259,7 +227,7 @@ delete the file when you are done.
 
 ## Docker container capture
 
-![Capture view: MySQL traffic between Docker containers, with container names in the Info column](image_2.png)
+![Capture view: MySQL traffic between Docker containers, with container names in the Info column](images/image_2.png)
 
 On macOS, Docker Desktop runs containers inside a Linux VM, so their traffic never
 reaches `en0`. WareHound starts a small helper container
@@ -276,7 +244,7 @@ inside that VM and streams the packets back into the app. No BPF access or
 > 2. Open the **Containers** menu (the arrow next to the button) and choose
 >    **Live capture — until Stop**.
 >
-> ![Capture toolbar with the Interface picker set to bridge0 and the Containers menu open on "Live capture — until Stop"](image_4.png)
+> ![Capture toolbar with the Interface picker set to bridge0 and the Containers menu open on "Live capture — until Stop"](images/image_4.png)
 >
 > Container traffic then streams in until you press **Stop Capture**.
 
