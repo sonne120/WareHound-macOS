@@ -1,236 +1,211 @@
 # WareHound for macOS
 
-A native macOS network packet analyzer written in Swift/SwiftUI. WareHound
-captures live traffic from your Mac's network interfaces (or Docker
-containers), decodes it, and lets you filter, inspect, follow streams, decrypt
-TLS, and export results.
+A native macOS packet analyzer written in Swift/SwiftUI on top of `libsniffer`
+(C++ on libpcap). It captures live traffic from your Mac's interfaces or from
+Docker containers, decodes it, and lets you filter, follow streams, read HTTP
+history, and decrypt TLS.
 
-```
-SwiftUI views
-   └── ViewModels (@Observable)
-         └── SnifferBridge (C callback → AsyncStream<PacketModel>)
-               └── libsniffer.dylib (C++ core on libpcap, optional Rust tunnel core)
-```
+## Requirements
 
----
+- macOS 14 (Sonoma) or newer, Apple Silicon
+- Xcode 15+ with command line tools
+- CMake: `brew install cmake`
+- OpenSSL and nghttp2 for TLS/HTTP2 decryption: `brew install openssl@3 libnghttp2`
+- Docker Desktop, only for container capture
 
-## 1. Requirements
+libpcap ships with macOS.
 
-| What | Why |
-|---|---|
-| macOS 14 (Sonoma) or newer, Apple Silicon | deployment target / build destination |
-| Xcode 15+ (command line tools included) | builds the app |
-| CMake (`brew install cmake`) | builds `libsniffer` |
-| Rust (`rustup`) — *only for tunnel mode* | builds the `snet` tunnel core |
-| Docker Desktop — *optional* | container capture |
-
-libpcap ships with macOS — nothing else to install.
-
----
-
-## 2. Build
+## Build and run
 
 From the `WareHound-macOS` folder:
 
-```bash
+```sh
 ./build_app.sh
+open ~/Library/Developer/Xcode/DerivedData/WareHound-*/Build/Products/Debug/WareHound.app
 ```
 
-This:
-1. builds `libsniffer` from `../Sniffer/libsniffer` with CMake,
-2. copies it to `Frameworks/libsniffer.dylib`,
-3. builds an unsigned Debug `WareHound.app` with `xcodebuild`.
+The script builds `libsniffer` with CMake, copies it to `Frameworks/libsniffer.dylib`,
+and builds an unsigned Debug app with `xcodebuild`.
 
-The app is written to Xcode's DerivedData:
-
-```
-~/Library/Developer/Xcode/DerivedData/WareHound-*/Build/Products/Debug/WareHound.app
-```
-
-### Build modes
-
-| Command | Result |
-|---|---|
-| `./build_app.sh` or `./build_app.sh pcap-local` | Unsigned local build. Live capture via libpcap/BPF. Packet Tunnel hidden. |
-| `WAREHOUND_DEVELOPMENT_TEAM=<TEAMID> ./build_app.sh tunnel-signed` | Signed build with the Packet Tunnel extension and Rust core. Needs a paid Apple Developer account. |
-
-Optional for signed builds: `WAREHOUND_CODE_SIGN_IDENTITY`,
-`WAREHOUND_PROVISIONING_PROFILE_SPECIFIER`.
-
-### Building a distributable DMG
-
-```bash
-scripts/make_dmg.sh          # → dist/WareHound-<version>.dmg
-```
-
-This builds libsniffer and a Release app, **copies `libsniffer.dylib` into
-`Frameworks/` and into `WareHound.app/Contents/Frameworks`** (so the app runs on
-other Macs), signs it, and packages a DMG with an *Applications* shortcut.
-
-The GitHub workflow [`.github/workflows/build-dmg.yml`](.github/workflows/build-dmg.yml)
-runs the same script on every push, pull request and `v*` tag:
-- the DMG is uploaded as a build **artifact** (Actions tab → run → *Artifacts*);
-- pushing a tag such as `v1.0.0` also attaches the DMG to a **GitHub Release**.
-
-Without secrets the DMG is ad-hoc signed. macOS will block it on first launch:
-right-click the app → **Open**, or run
+To build a distributable DMG instead, run `scripts/make_dmg.sh`. The result lands in
+`dist/`. An ad-hoc signed DMG is blocked by Gatekeeper on first launch: right-click
+the app and choose **Open**, or run
 `xattr -dr com.apple.quarantine /Applications/WareHound.app`.
-To ship a signed, notarized DMG, add these repository secrets:
 
-| Secret | Value |
-|---|---|
-| `MACOS_CERT_P12` | Developer ID Application certificate, exported as `.p12`, base64 (`base64 -i cert.p12 \| pbcopy`) |
-| `MACOS_CERT_PASSWORD` | password of the `.p12` |
-| `APPLE_ID` | Apple ID email |
-| `APPLE_APP_PASSWORD` | app-specific password from appleid.apple.com |
-| `APPLE_TEAM_ID` | 10-character Team ID |
+## Kernel access for capture (one-time)
 
-Capture permission (step 3) is still needed after installing from the DMG.
+Live capture reads the BPF devices `/dev/bpf*`, which macOS restricts to root.
+WareHound can grant itself access without running as root.
 
-### Building from Xcode instead
+**In the app (recommended).** Open **Settings**, find the **BPF access** card and
+press **Install BPF access…**. macOS asks for your administrator password once.
+The installer then:
 
-```bash
-open WareHound.xcodeproj
-```
+1. creates the `access_bpf` group if needed and adds your user to it,
+2. changes `/dev/bpf*` to that group with read/write permission,
+3. installs the LaunchDaemon `com.warehound.chmodbpf`, which re-applies step 2
+   at every boot so the access survives reboots.
 
-Select the **WareHound** scheme and **My Mac**, then press **⌘R**.
-Run `./build_app.sh` once first so `Frameworks/libsniffer.dylib` exists
-(otherwise linking fails with `library not found for -lsniffer`).
+Log out and back in once so your session picks up the new group. The same card
+shows the device count and whether the devices are readable and writable, and
+**Remove…** undoes the installation.
 
----
+**By hand.** The equivalent shell steps, using the scripts in
+`WareHound-macOS/scripts/`:
 
-## 3. Give WareHound permission to capture (one-time)
-
-Packet capture reads `/dev/bpf*`, which macOS restricts to root. Pick one:
-
-**Option A — permanent, no sudo (recommended).** Join the `access_bpf` group
-and install the boot-time helper that fixes BPF permissions:
-
-```bash
-sudo dseditgroup -o edit -a "$USER" -t user access_bpf   # skip if already a member
+```sh
+sudo dseditgroup -o create access_bpf 2>/dev/null
+sudo dseditgroup -o edit -a "$USER" -t user access_bpf
 sudo mkdir -p "/Library/Application Support/WareHound"
-sudo cp scripts/warehound-chmod-bpf.sh "/Library/Application Support/WareHound/"
+sudo cp WareHound-macOS/scripts/warehound-chmod-bpf.sh "/Library/Application Support/WareHound/"
 sudo chmod 755 "/Library/Application Support/WareHound/warehound-chmod-bpf.sh"
-sudo cp scripts/org.warehound.ChmodBPF.plist /Library/LaunchDaemons/
+sudo cp WareHound-macOS/scripts/org.warehound.ChmodBPF.plist /Library/LaunchDaemons/
 sudo chown root:wheel /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
 sudo launchctl load /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
 ```
 
-Log out and back in after joining the group. Wireshark's *ChmodBPF* helper does the same job if you already have it.
+Wireshark's ChmodBPF helper does the same job if you already have it installed.
+As a quick test you can also run the binary with `sudo`, but the app then writes
+its settings as root.
 
-**Option B — quick test.** Run the app as root (see below).
+## Capture
 
-You can check access at any time in **Settings → BPF access**
-(device count, readable, writable) and press **Copy setup note** for instructions.
+![Capture view: live traffic on en0 with TLS, HTTPS and QUIC packets](image_1.png)
 
----
+The screenshot shows a live capture on `en0`. From left to right, the toolbar has:
 
-## 4. Run
+- **Interface** picker and **Start Capture** (⌘R). Press it again to stop.
+  **Clear** empties the list.
+- **Router** menu: quick filters for traffic routed via the gateway (by MAC) or
+  addressed to the router (by IP).
+- **Containers**: Docker capture, described below.
+- **Filter** field for the display filter. Examples:
 
-```bash
-APP=$(ls -d ~/Library/Developer/Xcode/DerivedData/WareHound-*/Build/Products/Debug/WareHound.app | head -1)
+  ```
+  proto == TCP and port == 443
+  proto == TCP && checksum != bad
+  http contains example.com
+  method == GET
+  dhcp == Discover
+  arp contains 192.168.1.1
+  quic == true
+  mdns contains local
+  ```
 
-open "$APP"                           # normal launch
-"$APP/Contents/MacOS/WareHound"       # run in the terminal and see logs
-sudo "$APP/Contents/MacOS/WareHound"  # if you skipped step 3
-```
+  Plain text search works too.
+- **View modes**: packet table, HTTP history (globe), cards, compact sparklines,
+  timeline swimlanes, and a JA3-style TLS fingerprint heatmap.
+- **Follow** keeps the table scrolled to the newest packet. **Columns** shows or
+  hides columns (MAC, checksum, TCP flags, TTL, window, VLAN, QoS, ICMP, seq/ack).
+  **Stats** toggles the live statistics panel at the bottom.
 
-Rebuild and launch in one line:
+The row of chips under the toolbar is the quick filter: **HTTP**, **JSON**,
+**HTML**, status classes **2xx** to **5xx**, and **Flagged**. A chip selects whole
+flows, so the packet table keeps every packet of a connection that carried a
+matching exchange. The **Apps** and **Hosts** menus narrow the table to one
+application or one host. Rows are colour-coded by protocol, and the donut at the
+bottom shows the protocol mix of the capture.
 
-```bash
-./build_app.sh && open "$APP"
-```
+Right-click a packet for **Open Details** (decoded fields and hex dump),
+**Follow Stream**, a colour flag, **Filter by App**, **Filter by Host**, and
+**Copy Row / Info / SNI / Fingerprint**. The window toolbar opens and saves
+`.pcap` files, exports packets as PCAP, CSV or JSON, and saves a snapshot to the
+Dashboard.
 
-Quit from the terminal: `pkill -f WareHound.app/Contents/MacOS/WareHound`
+### Reading the Info column: TLS, HTTPS and QUIC
 
----
+The **Info** column is where encrypted traffic becomes readable at a glance. In
+the screenshot above:
 
-## 5. Using WareHound
+- **TLS** rows show the record type, such as `Application Data`. The ClientHello
+  carries the server name, and **Copy SNI** puts it on the clipboard. The
+  fingerprint heatmap groups connections by their JA3-style ClientHello
+  fingerprint over time.
+- **HTTPS** rows are packets on port 443 (also 5001 and 8443) that carry no TLS
+  record, typically bare ACKs. The label comes from the port alone.
+- **QUIC** rows need no key log to be labelled. WareHound derives the Initial
+  secrets from the connection ID, as RFC 9001 describes, and decrypts the
+  Initial packet on the fly. The row then shows the version, the DCID length and
+  the server name and ALPN found in the ClientHello, for example
+  `Initial v0x00000001 DCID=8 SNI=www.linkedin.com`. Later short-header packets
+  are shown as `1-RTT · Host: www.linkedin.com`, carrying the host learnt from
+  the handshake. Payload bytes of 1-RTT packets are not decrypted.
 
-The sidebar has five sections: **Capture**, **Dashboard**, **Statistics**,
-**Logs**, **Settings**.
+To filter on this, type `quic == true`, `port == 443`, or a host name such as
+`linkedin` into the filter field.
 
-### Capture — live traffic
+### Decrypting HTTPS
 
-1. Choose a network **Interface** (e.g. `en0` for Wi-Fi).
-2. Press **Start Capture** (**⌘R**). Press it again to stop.
-3. Packets appear in real time. **Clear** empties the list.
+TLS payload decryption needs the session keys. Apps that honour the
+`SSLKEYLOGFILE` variable (Chrome, Firefox, curl, Python, Node and others) write
+them to a file. Safari and most built-in macOS apps cannot export keys.
 
-**Display filter** — type into the filter box to narrow what is shown
-(hover the ⓘ icon for examples):
+1. Open **Settings** and press **Use ~/tls-keys.log** in the **HTTPS decryption**
+   card, or **Choose…** an existing key log. The card also offers
+   **Copy commands** for the launch lines below.
+2. Quit the client app and start it with the key log set, for example:
 
-```
-proto == TCP
-port == 443
-proto == TCP and port == 443
-proto == TCP && checksum != bad
-http contains example.com
-method == GET
-dhcp == Discover
-arp contains 192.168.1.1
-quic == true
-mdns contains local
-```
+   ```sh
+   open -a "Google Chrome" --env SSLKEYLOGFILE="$HOME/tls-keys.log"
+   open -a Firefox --env SSLKEYLOGFILE="$HOME/tls-keys.log"
+   export SSLKEYLOGFILE="$HOME/tls-keys.log"   # then run curl, Python, Node… from this shell
+   ```
 
-Plain text search works too.
+3. Start the capture. Only connections that begin after the key log is set can
+   be decrypted.
 
-**View modes** (segmented control): Table · Cards · Compact sparklines ·
-Timeline swimlanes · TLS fingerprint heatmap.
+Decrypted exchanges appear in two places:
 
-**Toolbar helpers**
-- **Follow** — auto-scroll to the newest packet (pause to inspect).
-- **Columns** — show/hide columns (MAC, checksum, TCP flags, TTL, window, VLAN, QoS, ICMP, seq/ack).
-- **Stats** — toggle the live statistics side panel.
-- **Router** menu — quick filters for traffic routed via the gateway (by MAC) or addressed to the router (by IP).
+- **HTTP history** (the globe view mode) lists every request and response, plain
+  or decrypted, with method, host, status, size and content type. Select a row
+  to see the **Request** and **Response** panes with headers and body as
+  **Text**, **Hex**, **List** or rendered **HTML**. Chunked framing and
+  gzip/deflate are removed. HTML renders offline with scripts and network loads
+  blocked. Encrypted connections without keys are still listed by host.
+- **Follow Stream** rebuilds one TCP conversation. Its **TLS** bar shows the key
+  log in use (**Choose SSLKEYLOGFILE…** picks another one) and **Decrypt**
+  rebuilds the stream. Turn on **Decrypted** to read the plaintext, switch
+  between ASCII and hex, filter by direction, and see HTTP/2 frames and gRPC
+  messages decoded. **Export Protobuf…** and **Save Payload…** write the data
+  to disk.
 
-**Right-click a packet** for: **Open Details** (decoded fields + hex dump),
-**Follow Stream**, **Copy Row / Info / SNI / Fingerprint**.
+The key log holds secrets for your sessions. Press **Turn Off** in Settings and
+delete the file when you are done.
 
-### Follow Stream & TLS decryption
+## Docker container capture
 
-**Follow Stream** rebuilds a whole TCP/UDP conversation:
-- switch between **ASCII** and **Hex**, filter by direction;
-- HTTP/2 and gRPC frames are decoded (headers, status, messages);
-- **Export Protobuf…** and **Save Payload…** export the data.
+![Capture view: MySQL traffic between Docker containers, with container names in the Info column](image_2.png)
 
-To read HTTPS traffic, start the client app with a key log file, e.g.
+On macOS, Docker Desktop runs containers inside a Linux VM, so their traffic never
+reaches `en0`. WareHound starts a small helper container
+(`nicolaka/netshoot` running `tcpdump -i any` with `--net=host --privileged`)
+inside that VM and streams the packets back into the app. No BPF access or
+`sudo` is needed for this mode.
 
-```bash
-SSLKEYLOGFILE=~/tls-keys.log open -a "Google Chrome"
-```
-
-then in Follow Stream press **Choose SSLKEYLOGFILE…** → **Decrypt**, and turn on **Decrypted**.
-
-### Docker container capture
-
-WareHound can capture the traffic **between your Docker containers**. On macOS,
-Docker Desktop runs containers inside a Linux VM, so their traffic never appears
-on the Mac's interfaces (`en0`, …). WareHound starts a small helper container
-(`nicolaka/netshoot`, running `tcpdump` with `--net=host --privileged`) inside
-that VM and streams the packets back into the app.
+The screenshot shows a capture of a Kafka/MySQL stack: the **Protocol** column
+labels port 3306 as MySQL, and the **Info** column resolves container IPs to
+their names, such as `kafkaflowshard-proxysql → kafkaflowshard-mysql-master`,
+together with the MySQL server version seen in the greeting.
 
 **Before you start**
-1. Start **Docker Desktop** and your containers (`docker ps` should list them).
-2. Optional, recommended: download the helper image once so the first capture
-   doesn't wait for it:
-   ```bash
+
+1. Start Docker Desktop and your containers. `docker ps` should list them.
+2. Optionally pull the helper image once so the first capture does not wait:
+
+   ```sh
    docker pull nicolaka/netshoot
    ```
-3. No BPF access or `sudo` is needed: the capture runs inside Docker, not on
-   your Mac's kernel.
 
-**Live capture.** In the Capture toolbar, click **📦 Containers**:
-1. WareHound detects your Docker networks and captures **all** container
-   traffic live, including containers that expose no ports.
-2. Use your services (API calls, queries, …). Packets appear in real time, and
-   container IPs are shown with their **container names** (e.g. `api → postgres`).
-3. Press **Stop Capture** (⌘R). The helper container is stopped as well.
+**Live capture.** Click **Containers** in the Capture toolbar. WareHound detects
+the Docker bridge networks and captures all container traffic, including
+containers that expose no ports, until you press **Stop Capture**.
 
-**Timed capture.** **Containers ▾ → Auto-detect · bounded window →
-Capture 5 s / 10 s / 30 s** records for a fixed time and then loads the result.
-Use it for busy setups so the capture stays small.
+**Timed capture.** Open the **Containers** menu and pick
+**Auto-detect · bounded window → Capture 5 s / 10 s / 30 s** to record for a
+fixed time. Use this on busy stacks so the capture stays small.
 
-**Specific services.** **Containers ▾ → Filter preset (10 s):**
+**Specific services.** **Containers → Filter preset (10 s)** records only the
+listed ports:
 
 | Preset | Ports |
 |---|---|
@@ -240,113 +215,55 @@ Use it for busy setups so the capture stays small.
 | HTTP | 8080, 8000, 5001, 8081 |
 | All TCP | all TCP traffic |
 
-**Other options in the menu**
-- **Ports only (quieter)**: when on, captures only the containers'
-  exposed/published ports, skipping health checks and heartbeats. When off
-  (default), captures everything on the Docker bridge networks.
-- **Edit protocol labels…**: names custom ports in the Protocol column
-  (e.g. `8000 → Kafka`, `5001 → My API`).
+**Ports only (quieter)** limits the capture to the containers' published ports,
+which drops health checks and heartbeats. **Edit protocol labels…** names your
+own ports in the Protocol column, for example `8000 → Kafka`.
 
-After capturing, everything works as usual: display filter (e.g.
-`port == 5432`), **Follow Stream**, **Statistics**, **Save pcap** / **Export**.
+After the capture, everything works as for a local capture: display filters such
+as `port == 3306`, **Follow Stream**, **Statistics**, **Save pcap** and
+**Export**.
 
-**Command-line alternative.** `WareHound-macOS/scripts/capture-containers.sh`
-writes a `.pcap` to your home folder; open it with **Open pcap**:
+A command-line alternative writes a `.pcap` to your home folder, which you can
+load with **Open pcap**:
 
-```bash
+```sh
 WareHound-macOS/scripts/capture-containers.sh [seconds] [maxPackets] [bpf filter...]
 WareHound-macOS/scripts/capture-containers.sh 20 10000 tcp port 9092 or tcp port 6379
 ```
 
-**Troubleshooting**
+## Other sections
+
+- **Dashboard**: saved capture snapshots. Review, export CSV, or delete.
+- **Statistics**: protocol and port breakdown, top talkers, top apps with bytes
+  sent and received, TCP connection health (RTT, retransmits), and ARP, DHCP,
+  HTTP, mDNS and QUIC details. Export as CSV or JSON.
+- **Logs**: the app log with level filter and search.
+- **Settings**: time format, theme, columns, protocol colours, kernel-level BPF
+  capture filter (for example `tcp port 443`), packet buffer size, BPF access,
+  and HTTPS decryption.
+
+## Troubleshooting
 
 | Problem | Fix |
 |---|---|
+| `library not found for -lsniffer` | Run `./build_app.sh`; it builds and copies the dylib. |
+| Interface list empty, or capture fails with a permission error | Install BPF access in Settings, then log out and back in. |
+| BPF access lost after a reboot | The LaunchDaemon is missing. Press **Install BPF access…** again. |
 | "Docker CLI not found" | Install or start Docker Desktop. WareHound looks for `docker` in `/usr/local/bin`, `/opt/homebrew/bin` and inside Docker.app. |
-| No packets appear | Check the containers are running and sending traffic during the capture. |
-| First capture is slow | It's downloading `nicolaka/netshoot`; run `docker pull nicolaka/netshoot` once. |
+| Docker capture shows nothing | Make sure the containers are running and sending traffic during the capture. |
+| First Docker capture is slow | It is downloading `nicolaka/netshoot`. Pull it once beforehand. |
 
-### Files and export (window toolbar)
-
-- **Open pcap** — load an existing `.pcap` (e.g. from Wireshark/tcpdump).
-- **Save pcap** — save the current capture.
-- **Export** — selected/filtered packets to PCAP, packet details, CSV, JSON.
-- **Save to Dashboard** — keep the current capture as a snapshot.
-
-### Dashboard
-
-Saved capture snapshots. Select one to review, **Export CSV**, or **Delete**.
-
-### Statistics
-
-Protocol and port breakdown, top talkers, TCP connection health
-(RTT, retransmits, bytes sent/received), ARP/DHCP/HTTP/mDNS/QUIC details.
-In tunnel mode it also shows **top TLS SNI hosts** and **top DNS names**.
-**Export CSV / JSON**, **Refresh**, **Clear**.
-
-### Logs
-
-App log with level filter and text search. **Copy**, **Export**, **Clear**.
-
-### Settings
-
-- **Time format** — Relative / Absolute / Delta. **Theme** — Light / Dark.
-- **Columns** shown in the capture table.
-- **Protocol colors** — recolor protocols, add custom packet types, reset.
-- **BPF capture filter** — kernel-level filter applied at capture time (e.g. `tcp port 443`).
-- **Max packet buffer** — how many packets are kept in memory (1,000–1,000,000).
-- **Capture backend** — *libpcap / BPF* (default) or *Tunnel* (signed builds only).
-- **BPF access** — permission status and setup help.
-
----
-
-## 6. Tunnel mode (advanced)
-
-Tunnel mode routes traffic through a `NEPacketTunnelProvider` extension that
-runs `libsniffer` plus the Rust `snet`/smoltcp core, adding L7 analytics
-(TLS SNI, DNS timing). It is IP-only (no Ethernet headers or ARP).
-
-```bash
-WAREHOUND_DEVELOPMENT_TEAM=<TEAMID> ./run_tunnel_build.sh
-```
-
-This switches the app's backend to Tunnel, does a signed build, relaunches the
-app and sends ⌘R. Full setup (entitlements, App Group) is in
-[PacketTunnel/SETUP.md](WareHound-macOS/PacketTunnel/SETUP.md) and
-[PacketTunnel/README.md](WareHound-macOS/PacketTunnel/README.md).
-
----
-
-## 7. Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| `library not found for -lsniffer` | Run `./build_app.sh` (it builds and copies the dylib). |
-| Interface list empty / capture fails with a permission error | Do step 3, or run with `sudo`. Check **Settings → BPF access**. |
-| BPF access lost after reboot | The ChmodBPF launch daemon isn't installed or loaded (step 3). |
-| Tunnel option missing in Settings | You built `pcap-local`. Use `tunnel-signed`. |
-| Docker capture shows nothing | Start Docker Desktop, and make sure containers are running. |
-
----
-
-## 8. Project layout
+## Project layout
 
 ```
-Sources/
-  Views/         SwiftUI screens (Capture, Dashboard, Statistics, Settings, Follow Stream…)
-  ViewModels/    UI state and logic
-  Sniffer/       libsniffer bridge, pcap file I/O, packet parser, stream follower
-  Services/      logging, Docker capture, tunnel controller
-  Models/        packet and statistics models
-CSniffer/        module map + C headers for libsniffer
-Frameworks/      libsniffer.dylib (built by build_app.sh)
-PacketTunnel/    Network Extension (tunnel mode)
-scripts/         ChmodBPF helper, Docker capture script
-Tests/, WareHoundTests/   unit tests
-build_app.sh     main build script
-run_tunnel_build.sh       tunnel smoke-test runner
-gen_xcodeproj.py regenerates WareHound.xcodeproj — run after adding/removing .swift files
+Sniffer/libsniffer/      C++ capture core: libpcap, reassembly, TLS/QUIC decryption, HTTP tracker
+WareHound-macOS/
+  Sources/Views/         SwiftUI screens
+  Sources/ViewModels/    UI state and logic
+  Sources/Sniffer/       libsniffer bridge, pcap file I/O, packet parser, stream follower
+  Sources/Services/      logging, Docker capture, BPF access installer
+  CSniffer/              module map and C headers for libsniffer
+  Frameworks/            libsniffer.dylib, built by build_app.sh
+  scripts/               ChmodBPF helper, Docker capture script, DMG packaging
+  build_app.sh           main build script
 ```
-
-After adding or removing `.swift` files, run `python3 gen_xcodeproj.py`.
-It overwrites `WareHound.xcodeproj/project.pbxproj`, so changes made by hand in Xcode are lost.
