@@ -233,6 +233,7 @@ struct SettingsView: View {
                 bpfAccessCard
                 captureCard
                 backendCard
+                httpsCard
                 licenseCard
             }
         case 2:
@@ -249,6 +250,7 @@ struct SettingsView: View {
                 }
                 protocolColorsCard
                 backendCard
+                httpsCard
                 licenseCard
             }
         default:
@@ -410,6 +412,73 @@ struct SettingsView: View {
             get: { settings.color(forProtocol: proto) },
             set: { settings.setProtocolColor($0, forProtocol: proto) }
         )
+    }
+
+    private static let keylogCommands = """
+    open -a "Google Chrome" --env SSLKEYLOGFILE="$HOME/tls-keys.log"
+    open -a Firefox --env SSLKEYLOGFILE="$HOME/tls-keys.log"
+    export SSLKEYLOGFILE="$HOME/tls-keys.log"   # then run curl, Python, Node… from this shell
+    """
+
+    private var httpsCard: some View {
+        card("HTTPS decryption", systemImage: "lock.open") {
+            Label {
+                Text(settings.tlsKeylogPath.isEmpty ? "Off — no TLS key log file set" : settings.tlsKeylogPath)
+                    .font(.system(size: 12, weight: .semibold, design: settings.tlsKeylogPath.isEmpty ? .default : .monospaced))
+                    .foregroundStyle(AppColors.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            } icon: {
+                Image(systemName: settings.tlsKeylogPath.isEmpty ? "lock.fill" : "lock.open.fill")
+                    .foregroundStyle(settings.tlsKeylogPath.isEmpty ? AppColors.textSecondary : AppColors.success)
+            }
+
+            HStack {
+                Button {
+                    let path = (NSHomeDirectory() as NSString).appendingPathComponent("tls-keys.log")
+                    if !FileManager.default.fileExists(atPath: path) {
+                        FileManager.default.createFile(atPath: path, contents: nil,
+                                                       attributes: [.posixPermissions: 0o600])
+                    }
+                    settings.tlsKeylogPath = path
+                } label: {
+                    Label("Use ~/tls-keys.log", systemImage: "key.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Choose…") {
+                    let panel = NSOpenPanel()
+                    panel.canChooseFiles = true
+                    panel.canChooseDirectories = false
+                    if panel.runModal() == .OK, let url = panel.url { settings.tlsKeylogPath = url.path }
+                }
+                if !settings.tlsKeylogPath.isEmpty {
+                    Button("Turn Off") { settings.tlsKeylogPath = "" }
+                }
+            }
+            .buttonStyle(.bordered)
+
+            Text("HTTPS requests appear decrypted in the HTTP history (🌐) for apps that write their TLS keys to this file. Quit the app, start it like this, then capture:")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(Self.keylogCommands)
+                .font(.system(size: 11, design: .monospaced))
+                .textSelection(.enabled)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppColors.tertiary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(Self.keylogCommands, forType: .string)
+            } label: {
+                Label("Copy commands", systemImage: "doc.on.doc")
+            }
+            .buttonStyle(.bordered)
+            Text("Safari and most built-in macOS apps can't export TLS keys. Only connections that start after the key log is set are decrypted. The key file holds secrets for your sessions — delete it when you're done.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var licenseCard: some View {

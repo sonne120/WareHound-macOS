@@ -12,6 +12,7 @@ struct StatisticsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 overviewCards
                 ppsChart
+                appsPanel
                 HStack(alignment: .top, spacing: 16) {
                     protocolChart
                     talkersPanel
@@ -46,6 +47,82 @@ struct StatisticsView: View {
             Button("Clear") { viewModel.clear() }
         }
         .onAppear { viewModel.refresh() }
+    }
+
+    private var appsPanel: some View {
+        let apps = viewModel.topApps
+        let chartApps = Array(apps.filter { !$0.isUnresolved }.prefix(8))
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Top apps", systemImage: "app.badge").font(.headline)
+                Spacer()
+                Text("Live capture on this Mac").font(.caption).foregroundStyle(AppColors.textSecondary)
+            }
+            if apps.isEmpty {
+                Text("No app traffic yet. Apps are identified during live capture of this Mac's own traffic.")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 60)
+            } else {
+                Chart(chartApps) { stat in
+                    BarMark(x: .value("Bytes", stat.bytesReceived), y: .value("App", stat.app.name))
+                        .foregroundStyle(by: .value("Direction", "Received"))
+                    BarMark(x: .value("Bytes", stat.bytesSent), y: .value("App", stat.app.name))
+                        .foregroundStyle(by: .value("Direction", "Sent"))
+                }
+                .chartForegroundStyleScale(["Received": AppColors.accent, "Sent": AppColors.success])
+                .chartXAxis {
+                    AxisMarks { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let bytes = value.as(Int64.self) {
+                                Text(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
+                            }
+                        }
+                    }
+                }
+                .frame(height: CGFloat(max(chartApps.count, 1)) * 26 + 30)
+
+                VStack(spacing: 0) {
+                    appRow(nil)
+                    ForEach(apps.prefix(20)) { appRow($0) }
+                }
+            }
+        }
+        .padding()
+        .background(AppColors.secondary, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func appRow(_ stat: AppStat?) -> some View {
+        let header = stat == nil
+        func cell(_ text: String, _ width: CGFloat) -> some View {
+            Text(text)
+                .font(.system(size: 11, weight: header ? .semibold : .regular, design: header ? .default : .monospaced))
+                .foregroundStyle(header ? AppColors.textSecondary : AppColors.textPrimary)
+                .frame(width: width, alignment: .trailing)
+        }
+        return HStack(spacing: 10) {
+            Group {
+                if let stat {
+                    AppLabel(app: stat.app)
+                } else {
+                    Text("App").font(.system(size: 11, weight: .semibold)).foregroundStyle(AppColors.textSecondary)
+                }
+            }
+            .frame(minWidth: 140, maxWidth: .infinity, alignment: .leading)
+            cell(stat.map { $0.packets.formatted() } ?? "Packets", 80)
+            cell(stat.map { ByteCountFormatter.string(fromByteCount: $0.bytesSent, countStyle: .file) } ?? "Sent", 80)
+            cell(stat.map { ByteCountFormatter.string(fromByteCount: $0.bytesReceived, countStyle: .file) } ?? "Received", 80)
+            cell(stat.map { "\($0.connections)" } ?? "Conns", 56)
+            cell(stat.map { "\($0.hosts)" } ?? "Hosts", 50)
+            Text(stat?.topHost.isEmpty == false ? stat!.topHost : (header ? "Top host" : "—"))
+                .font(.system(size: 11, weight: header ? .semibold : .regular))
+                .foregroundStyle(header ? AppColors.textSecondary : AppColors.textPrimary)
+                .lineLimit(1)
+                .frame(width: 200, alignment: .leading)
+        }
+        .padding(.vertical, 4)
+        .overlay(alignment: .bottom) { Divider().opacity(header ? 1 : 0.4) }
     }
 
     private var overviewCards: some View {

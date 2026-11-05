@@ -89,6 +89,25 @@ final class CaptureViewModel {
     // Docker IP → container name; distinguishes services that port alone can't.
     private var containerNames: [String: String] = [:]
 
+    // HTTP history and app attribution come from libsniffer; Swift keeps render state only.
+    private(set) var httpTransactions: [HttpTransaction] = []
+    private(set) var filteredTransactions: [HttpTransaction] = []
+    private var httpIndex: [UInt64: Int] = [:]
+    private var httpVersion: UInt64 = 0
+    private(set) var flowApps: [String: AppIdentity] = [:]
+    private(set) var knownApps: Set<String> = []
+    private(set) var knownHosts: Set<String> = []
+    private(set) var flags: [Int: PacketFlag] = [:]
+    private(set) var httpSummary = HttpSummary()
+    private(set) var appStats: [AppStat] = []
+    private var lastAppStatsRefresh = ContinuousClock.now
+    private var isDecrypting = false
+    private var decryptAgain = false
+    private var lastDecrypt = ContinuousClock.now - .seconds(10)
+    var quickFilter: QuickFilter = .all { didSet { rebuildDerivedPackets() } }
+    var appFilter: String? { didSet { rebuildDerivedPackets() } }
+    var hostFilter: String? { didSet { rebuildDerivedPackets() } }
+
     // Aggregation updates every flush; SwiftUI-observed state republishes at a capped rate.
     private var liveStats = CaptureStatistics()
     private var liveScanCount = 0
@@ -185,6 +204,7 @@ final class CaptureViewModel {
         ipHosts.removeAll(keepingCapacity: true)
         NativeStats.l7Clear()
         NativeStats.resetFlows()
+        resetTrafficAnalysis()
         statistics.captureStartTime = .now
         PacketModel.captureStartTime = .now
         liveStats = statistics
@@ -616,11 +636,18 @@ final class CaptureViewModel {
             do {
                 NativeStats.l7Clear()
                 NativeStats.resetFlows()
+                resetTrafficAnalysis()
                 let loaded = try await pcapService.load(from: url.path)
                 flowHosts.removeAll(keepingCapacity: true)
         ipHosts.removeAll(keepingCapacity: true)
                 if !keepContainerNames { containerNames.removeAll(keepingCapacity: true) }
                 packets = loaded.map { self.enrichHostName(for: $0) }
+                for packet in packets {
+                    NativeHttp.feed(packet)
+                    if !packet.hostName.isEmpty { knownHosts.insert(packet.hostName) }
+                }
+                pullHttpChanges()
+                scheduleDecrypt(force: true)
                 rebuildDerivedPackets()
                 statistics = CaptureStatistics()
                 statistics.captureStartTime = packets.first?.captureTime ?? .now
@@ -697,6 +724,7 @@ final class CaptureViewModel {
         ipHosts.removeAll(keepingCapacity: true)
         NativeStats.l7Clear()
         NativeStats.resetFlows()
+        resetTrafficAnalysis()
         statistics.captureStartTime = .now
         PacketModel.captureStartTime = .now
         liveStats = statistics
@@ -902,6 +930,7 @@ final class CaptureViewModel {
         ipHosts.removeAll(keepingCapacity: true)
         NativeStats.l7Clear()
         NativeStats.resetFlows()
+        resetTrafficAnalysis()
         containerNames.removeAll(keepingCapacity: true)
         liveStats = CaptureStatistics()
         liveScanCount = 0
@@ -912,6 +941,175 @@ final class CaptureViewModel {
 
     func toggleStatsPanel() {
         isStatsPanelVisible.toggle()
+    }
+
+
+    // MARK: - HTTP history, apps, flags
+
+    func packet(number: Int) -> PacketModel? {
+        var lo = 0, hi = packets.count - 1
+        while lo <= hi {
+            let mid = (lo + hi) / 2
+            if packets[mid].number == number { return packets[mid] }
+            if packets[mid].number < number { lo = mid + 1 } else { hi = mid - 1 }
+        }
+        return nil
+    }
+
+    func app(for packet: PacketModel) -> AppIdentity? {
+        if let app = flowApps[Self.endpointPairKey(packet)] { return app }
+        if let name = containerNames[packet.sourceIp] ?? containerNames[packet.destIp] {
+            return AppIdentity(pid: 0, name: name, bundlePath: nil, isContainer: true)
+        }
+        return nil
+    }
+
+    func app(for transaction: HttpTransaction) -> AppIdentity? {
+        packet(number: transaction.requestFrame).flatMap { app(for: $0) }
+    }
+
+    func setFlag(_ flag: PacketFlag?, for number: Int) {
+        flags[number] = flag
+        if quickFilter == .flagged { rebuildDerivedPackets() }
+    }
+
+    func httpMessage(_ transaction: HttpTransaction, response: Bool, decoded: Bool) -> Data? {
+        NativeHttp.message(id: transaction.id, response: response, decoded: decoded)
+    }
+
+    func httpHead(_ transaction: HttpTransaction, response: Bool) -> HttpHead? {
+        NativeHttp.head(id: transaction.id, response: response)
+    }
+
+    func httpBody(_ transaction: HttpTransaction, response: Bool) -> Data? {
+        NativeHttp.body(id: transaction.id, response: response, decoded: true)
+    }
+
+    private func resolveApp(for packet: PacketModel) {
+        guard packet.meta.isIP, packet.meta.ipProto == 6 || packet.meta.ipProto == 17 else { return }
+        // Every packet is counted in libsniffer; the flow's app is cached here once known.
+        guard let app = NativeProcess.account(packet) else { return }
+        let key = Self.endpointPairKey(packet)
+        if flowApps[key] == nil {
+            flowApps[key] = app
+            knownApps.insert(app.name)
+        }
+    }
+
+    // HTTPS rows: libsniffer decrypts TLS flows with the configured key log, off the main thread.
+    private func scheduleDecrypt(force: Bool = false) {
+        guard !SettingsViewModel.shared.tlsKeylogPath.isEmpty else { return }
+        if isDecrypting {
+            if force { decryptAgain = true }
+            return
+        }
+        let now = ContinuousClock.now
+        guard force || now - lastDecrypt >= .milliseconds(1500) else { return }
+        isDecrypting = true
+        lastDecrypt = now
+        Task { [weak self] in
+            let processed = await Task.detached(priority: .utility) { NativeHttp.decryptPending() }.value
+            guard let self else { return }
+            self.isDecrypting = false
+            if processed > 0 {
+                self.pullHttpChanges()
+                self.rebuildDerivedPackets()
+            }
+            if self.decryptAgain {
+                self.decryptAgain = false
+                self.scheduleDecrypt(force: true)
+            }
+        }
+    }
+
+    private func refreshAppStats(force: Bool = false) {
+        let now = ContinuousClock.now
+        guard force || now - lastAppStatsRefresh >= .seconds(1) else { return }
+        lastAppStatsRefresh = now
+        appStats = NativeProcess.appStats()
+    }
+
+    private func pullHttpChanges() {
+        // Proxy rows share the tracker but have no frames; the Proxy tab shows them.
+        let changed = NativeHttp.changes(since: &httpVersion).filter { $0.source == .capture }
+        guard !changed.isEmpty else { return }
+        httpSummary = NativeHttp.summary()
+        var added: [HttpTransaction] = []
+        for row in changed {
+            if let i = httpIndex[row.id] { httpTransactions[i] = row } else { added.append(row) }
+        }
+        for row in added.sorted(by: { $0.id < $1.id }) {
+            httpIndex[row.id] = httpTransactions.count
+            httpTransactions.append(row)
+        }
+        // libsniffer keeps the newest 20k rows; mirror that so memory stays bounded.
+        if httpTransactions.count > 20_000 {
+            httpTransactions.removeFirst(httpTransactions.count - 20_000)
+            httpIndex = Dictionary(uniqueKeysWithValues: httpTransactions.enumerated().map { ($1.id, $0) })
+        }
+        for row in httpTransactions where !row.host.isEmpty { knownHosts.insert(row.host) }
+        for row in added { if let app = app(for: row) { knownApps.insert(app.name) } }
+    }
+
+    private func resetTrafficAnalysis() {
+        NativeHttp.clear(source: .capture)
+        NativeProcess.clear()
+        httpTransactions.removeAll()
+        filteredTransactions.removeAll()
+        httpIndex.removeAll()
+        httpVersion = 0
+        flowApps.removeAll()
+        appStats.removeAll()
+        httpSummary = HttpSummary()
+        knownApps.removeAll()
+        knownHosts.removeAll()
+        flags.removeAll()
+    }
+
+    private func transactionMatchesChips(_ t: HttpTransaction) -> Bool {
+        switch quickFilter {
+        case .all: break
+        case .http: guard t.kind != .tls else { return false }
+        case .json: guard t.isJSON else { return false }
+        case .html: guard t.isHTML else { return false }
+        case .status2xx: guard t.statusClass == 2 else { return false }
+        case .status3xx: guard t.statusClass == 3 else { return false }
+        case .status4xx: guard t.statusClass == 4 else { return false }
+        case .status5xx: guard t.statusClass == 5 else { return false }
+        case .flagged: guard flags[t.requestFrame] != nil else { return false }
+        }
+        if let hostFilter, t.host != hostFilter { return false }
+        if let appFilter, app(for: t)?.name != appFilter { return false }
+        return true
+    }
+
+    private func filterTransactions() -> [HttpTransaction] {
+        let text = filterText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return httpTransactions.filter { t in
+            guard transactionMatchesChips(t) else { return false }
+            guard !text.isEmpty else { return true }
+            let haystack = [t.method, t.host, t.target, "\(t.status)", t.contentType, app(for: t)?.name ?? ""]
+                .joined(separator: " ").lowercased()
+            return haystack.contains(text)
+        }
+    }
+
+    // HTTP chips select whole flows: every packet of a connection that carried a matching exchange.
+    private func applyQuickFilters<S: Sequence>(_ source: S) -> [PacketModel] where S.Element == PacketModel {
+        guard quickFilter != .all || appFilter != nil || hostFilter != nil else { return Array(source) }
+        var flowKeys: Set<String>?
+        if quickFilter != .all && quickFilter != .flagged {
+            flowKeys = Set(httpTransactions.filter(transactionMatchesChips).compactMap {
+                packet(number: $0.requestFrame).map(Self.endpointPairKey)
+            })
+        }
+        return source.filter { packet in
+            if quickFilter == .flagged && flags[packet.number] == nil { return false }
+            if let flowKeys { return flowKeys.contains(Self.endpointPairKey(packet)) }
+            if let hostFilter, packet.hostName != hostFilter && packet.httpRequest?.host != hostFilter { return false }
+            if let appFilter, app(for: packet)?.name != appFilter { return false }
+            return true
+        }
     }
 
     // MARK: - Follow Stream
@@ -951,6 +1149,7 @@ final class CaptureViewModel {
         filteredPackets = filtered
         captureTablePackets = filterPackets(source.lazy.filter { $0.tlsClientHello != nil })
         sortedTablePackets = sortPackets(filtered)
+        filteredTransactions = filterTransactions()
     }
 
     private func rebuildSortedPackets() {
@@ -974,17 +1173,18 @@ final class CaptureViewModel {
     }
 
     private func filterPackets<S: Sequence>(_ source: S) -> [PacketModel] where S.Element == PacketModel {
+        let chipped = applyQuickFilters(source)
         let text = filterText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return Array(source) }
+        guard !text.isEmpty else { return chipped }
 
         if let clauses = parseFilterExpression(text) {
-            return source.filter { packet in
+            return chipped.filter { packet in
                 clauses.allSatisfy { matches(packet, clause: $0) }
             }
         }
 
         let f = text.lowercased()
-        return source.filter {
+        return chipped.filter {
             searchableText(for: $0).contains(f)
         }
     }
@@ -1143,6 +1343,9 @@ final class CaptureViewModel {
             case .destination: return a.destinationEndpoint.localizedStandardCompare(b.destinationEndpoint) == .orderedAscending
             case .proto:       return a.proto < b.proto
             case .length:      return a.originalLen < b.originalLen
+            case .app:
+                let x = app(for: a)?.name ?? "\u{10FFFF}", y = app(for: b)?.name ?? "\u{10FFFF}"
+                return x.localizedStandardCompare(y) == .orderedAscending
             }
         }
         return sortAscending ? ordered : Array(ordered.reversed())
@@ -1150,6 +1353,12 @@ final class CaptureViewModel {
 
     private func flush(_ batch: [PacketModel]) {
         let enrichedBatch = batch.map { enrichHostName(for: $0) }
+        let resolveApps = isCapturing && !isDockerLive
+        for packet in enrichedBatch {
+            NativeHttp.feed(packet)
+            if resolveApps { resolveApp(for: packet) }
+            if !packet.hostName.isEmpty { knownHosts.insert(packet.hostName) }
+        }
         for packet in enrichedBatch {
             liveStats.accumulate(packet)
             if packet.isScan { liveScanCount += 1 }
@@ -1186,6 +1395,9 @@ final class CaptureViewModel {
         statistics = liveStats
         scanCount = liveScanCount
         badChecksumCount = liveBadChecksumCount
+        pullHttpChanges()
+        refreshAppStats(force: !isCapturing)
+        scheduleDecrypt(force: !isCapturing)
         rebuildDerivedPackets()
         if isCapturing {
             statusMessage = "Capturing — \(statistics.totalPackets) packets, \(statistics.totalBytes) bytes"
@@ -1223,4 +1435,14 @@ final class CaptureViewModel {
         }
         return packet
     }
+}
+
+enum QuickFilter: String, CaseIterable, Sendable {
+    case all = "All", http = "HTTP", json = "JSON", html = "HTML"
+    case status2xx = "2xx", status3xx = "3xx", status4xx = "4xx", status5xx = "5xx"
+    case flagged = "Flagged"
+}
+
+enum PacketFlag: String, CaseIterable, Sendable {
+    case red = "Red", orange = "Orange", yellow = "Yellow", green = "Green", blue = "Blue", purple = "Purple"
 }

@@ -42,6 +42,7 @@ final class StatisticsViewModel {
 
     // Cumulative totals, so they never shrink on tab switches.
     var scanCount: Int { captureViewModel?.scanCount ?? 0 }
+    var topApps: [AppStat] { captureViewModel?.appStats ?? [] }
     var badChecksumCount: Int { captureViewModel?.badChecksumCount ?? 0 }
 
     // Sticky: only overwritten with fresh data, never blanked on tab switch.

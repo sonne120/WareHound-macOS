@@ -3,6 +3,8 @@ module CSniffer {
     header "include/statistic_exports.h"
     header "include/statistic_l7_exports.h"
     header "include/reassembly.h"
+    header "include/http_exports.h"
+    header "include/proc_exports.h"
     link "sniffer"
     link "pcap"
     export *

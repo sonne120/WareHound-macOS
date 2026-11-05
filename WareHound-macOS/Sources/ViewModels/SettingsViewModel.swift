@@ -142,6 +142,13 @@ final class SettingsViewModel {
     var captureFilter = "" {
         didSet { UserDefaults.standard.set(captureFilter, forKey: "captureFilter") }
     }
+    // SSLKEYLOGFILE that libsniffer uses to decrypt HTTPS into the HTTP history.
+    var tlsKeylogPath = "" {
+        didSet {
+            UserDefaults.standard.set(tlsKeylogPath, forKey: "tlsKeylogPath")
+            NativeHttp.setKeylog(tlsKeylogPath)
+        }
+    }
     private(set) var bpfAccessStatus = BpfAccessStatus()
     private(set) var isBpfDaemonInstalled = false
     private(set) var isBpfInstallerRunning = false
@@ -242,6 +249,8 @@ final class SettingsViewModel {
             selectedCaptureBackend = .pcap
         }
         captureFilter = UserDefaults.standard.string(forKey: "captureFilter") ?? ""
+        tlsKeylogPath = UserDefaults.standard.string(forKey: "tlsKeylogPath") ?? ""
+        NativeHttp.setKeylog(tlsKeylogPath)   // observers don't run during init
         // Read per element (values are NSNumber); a whole-dictionary cast can drop them.
         if let saved = UserDefaults.standard.dictionary(forKey: "protocolColors") {
             var restored: [String: Int] = [:]

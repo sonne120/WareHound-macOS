@@ -4,12 +4,12 @@ import AppKit
 import UniformTypeIdentifiers
 import SystemConfiguration
 
-enum CaptureViewMode: Hashable { case table, cards, compact, timeline, heatmap }
+enum CaptureViewMode: Hashable { case table, http, cards, compact, timeline, heatmap }
 
-enum SortColumn: Hashable { case number, time, source, destination, proto, length }
+enum SortColumn: Hashable { case number, app, time, source, destination, proto, length }
 
 enum ColumnID: String, CaseIterable, Hashable {
-    case time = "Time", source = "Source", srcMac = "Src MAC"
+    case app = "App", time = "Time", source = "Source", srcMac = "Src MAC"
     case destination = "Destination", dstMac = "Dst MAC"
     case proto = "Protocol", length = "Length"
     case checksum = "Checksum", flags = "TCP Flags", ttl = "TTL", window = "Window"
@@ -50,9 +50,12 @@ struct CaptureView: View {
         VStack(spacing: 0) {
             toolbar
             Divider()
+            QuickFilterBar(viewModel: viewModel)
+            Divider()
             Group {
                 switch viewMode {
                 case .table: packetTable
+                case .http: HttpHistoryView(viewModel: viewModel) { followTransaction($0) }
                 case .cards: cardGrid
                 case .compact: compactList
                 case .timeline: timelineView
@@ -257,6 +260,7 @@ struct CaptureView: View {
 
             Picker("View", selection: $viewMode) {
                 Image(systemName: "list.bullet").tag(CaptureViewMode.table)
+                Image(systemName: "globe").tag(CaptureViewMode.http)
                 Image(systemName: "square.grid.2x2").tag(CaptureViewMode.cards)
                 Image(systemName: "chart.line.uptrend.xyaxis").tag(CaptureViewMode.compact)
                 Image(systemName: "chart.dots.scatter").tag(CaptureViewMode.timeline)
@@ -264,8 +268,8 @@ struct CaptureView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 208)
-            .help("Table · cards · compact sparklines · timeline swimlanes · fingerprint heatmap")
+            .frame(width: 250)
+            .help("Packets · HTTP history · cards · compact sparklines · timeline swimlanes · fingerprint heatmap")
 
             if viewMode == .table {
                 Toggle(isOn: followLiveBinding) {
@@ -1044,6 +1048,8 @@ struct CaptureView: View {
     private var packetHeader: some View {
         HStack(spacing: 0) {
             sortableHeader("No.", .number, width: 72)
+            headerCell("Fl.", width: 14)
+            if shows(.app) { sortableHeader("App", .app, width: 150) }
             if shows(.time) { sortableHeader("Time", .time, width: 118) }
             if shows(.source) { sortableHeader("Source", .source, width: 210) }
             if shows(.srcMac) { headerCell("Src MAC", width: 150) }
@@ -1096,6 +1102,8 @@ struct CaptureView: View {
     private func packetRow(_ packet: PacketModel) -> some View {
         HStack(spacing: 0) {
             numberCell(packet)
+            flagCell(packet)
+            if shows(.app) { AppLabel(app: viewModel.app(for: packet)).frame(width: 150, alignment: .leading).padding(.horizontal, 6) }
             if shows(.time) { rowCell(packet.captureTimestampDisplay, width: 118, mono: true) }
             if shows(.source) { rowCell(packet.sourceEndpoint, width: 210, mono: true) }
             if shows(.srcMac) { rowCell(packet.sourceMacDisplay, width: 150, mono: true) }
@@ -1124,6 +1132,14 @@ struct CaptureView: View {
             detailPacket = packet
         })
         .contextMenu {
+            FlagMenu(current: viewModel.flags[packet.number]) { viewModel.setFlag($0, for: packet.number) }
+            if let app = viewModel.app(for: packet) {
+                Button("Filter by App “\(app.name)”") { viewModel.appFilter = app.name }
+            }
+            if !packet.hostName.isEmpty {
+                Button("Filter by Host “\(packet.hostName)”") { viewModel.hostFilter = packet.hostName }
+            }
+            Divider()
             Button("Open Details") { detailPacket = packet }
             if viewModel.canFollowStream(packet) {
                 Button("Follow Stream") { followStream(packet) }
@@ -1208,6 +1224,23 @@ struct CaptureView: View {
         followContext = FollowStreamContext(
             title: "\(packet.sourceEndpoint) ↔ \(packet.destinationEndpoint)",
             packets: viewModel.streamPackets(for: packet))
+    }
+
+    private func followTransaction(_ transaction: HttpTransaction) {
+        guard let packet = viewModel.packet(number: transaction.requestFrame) else { return }
+        followStream(packet)
+    }
+
+    private func flagCell(_ packet: PacketModel) -> some View {
+        let flag = viewModel.flags[packet.number]
+        return Image(systemName: flag == nil ? "flag" : "flag.fill")
+            .font(.system(size: 9))
+            .foregroundStyle(flag?.color ?? AppColors.textDisabled.opacity(0.6))
+            .frame(width: 14)
+            .padding(.horizontal, 6)
+            .contentShape(Rectangle())
+            .onTapGesture { viewModel.setFlag(flag == nil ? .red : nil, for: packet.number) }
+            .help(flag == nil ? "Flag (right-click a row for colours)" : "Remove flag")
     }
 
     private func numberCell(_ packet: PacketModel) -> some View {
@@ -1367,6 +1400,8 @@ struct CaptureView: View {
 
 enum AppSection: String, CaseIterable, Identifiable {
     case capture = "Capture"
+    // Proxy section hidden from the sidebar; ProxyView/ProxyViewModel stay in the target.
+    // case proxy = "Proxy"
     case dashboard = "Dashboard"
     case statistics = "Statistics"
     case logs = "Logs"
@@ -1376,6 +1411,7 @@ enum AppSection: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .capture: "dot.radiowaves.left.and.right"
+        // case .proxy: "arrow.left.arrow.right"
         case .dashboard: "square.grid.2x2"
         case .statistics: "chart.bar.xaxis"
         case .logs: "text.alignleft"
@@ -1386,6 +1422,7 @@ enum AppSection: String, CaseIterable, Identifiable {
 
 struct MainWindow: View {
     @State private var captureVM: CaptureViewModel
+    @State private var proxyVM = ProxyViewModel()
     @State private var dashboardVM = DashboardViewModel()
     @State private var statisticsVM: StatisticsViewModel
     @State private var logVM = LogViewModel()
@@ -1431,6 +1468,7 @@ struct MainWindow: View {
             case .capture:
                 CaptureView(viewModel: captureVM)
                     .toolbar { capturePcapToolbar }
+            // case .proxy: ProxyView(viewModel: proxyVM)
             case .dashboard: DashboardView(viewModel: dashboardVM)
             case .statistics: StatisticsView(viewModel: statisticsVM)
             case .logs: LogView(viewModel: logVM)
@@ -1443,6 +1481,8 @@ struct MainWindow: View {
         .sheet(isPresented: $license.isLicenseSheetPresented) { LicenseView() }
         .onAppear {
             if !license.isUsable { license.isLicenseSheetPresented = true }
+            // A crash while routing left the system proxy pointing at a proxy that is not running.
+            if proxyVM.systemProxyNeedsRestore { proxyVM.restoreSystemProxy() }
         }
     }
 
@@ -1540,10 +1580,24 @@ struct MainWindow: View {
 
 @main
 struct WareHoundApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
         WindowGroup {
             MainWindow()
                 .frame(minWidth: 1000, minHeight: 620)
         }
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    // The system proxy must not keep pointing at a proxy that is about to exit.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard SystemProxy.hasSavedSettings else { return .terminateNow }
+        Task { @MainActor in
+            try? await SystemProxy.restore()   // if cancelled, the next launch offers it again
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }

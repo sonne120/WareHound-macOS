@@ -117,4 +117,8 @@ struct SnifferStream {
     int                      tls_records = 0;
 };
 
-namespace sniff::stream { int decrypt_tls(SnifferStream& s); }
+namespace sniff::stream {
+int decrypt_tls(SnifferStream& s);
+// Unfragmented TCP/UDP frame -> segment; false for anything else.
+bool frame_to_segment(const uint8_t* frame, int len, int link_type, uint64_t ts_usec, Segment& out);
+}

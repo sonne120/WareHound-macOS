@@ -1,12 +1,14 @@
 #!/bin/zsh
-# Xcode build phase: build libsniffer if missing, then embed it in WareHound.app/Contents/Frameworks.
+# Xcode build phase: build libsniffer if missing or stale, then embed it in WareHound.app/Contents/Frameworks.
 set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 FW="$SRCROOT/Frameworks/libsniffer.dylib"
-if [[ ! -f "$FW" ]]; then
-  SNIFFER="$SRCROOT/../Sniffer/libsniffer"
-  echo "libsniffer.dylib missing, building it from $SNIFFER"
+SNIFFER="$SRCROOT/../Sniffer/libsniffer"
+STALE=""
+[[ -f "$FW" ]] && STALE=$(find "$SNIFFER/src" "$SNIFFER/include" "$SNIFFER/CMakeLists.txt" -newer "$FW" -print -quit 2>/dev/null)
+if [[ ! -f "$FW" || -n "$STALE" ]]; then
+  echo "libsniffer.dylib missing or older than its sources, building it from $SNIFFER"
   cmake -S "$SNIFFER" -B "$SNIFFER/build-xcode" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
@@ -24,6 +26,7 @@ fi
 DEST="$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH"
 mkdir -p "$DEST"
 cp -f "$FW" "$DEST/libsniffer.dylib"
+xattr -c "$DEST/libsniffer.dylib" 2>/dev/null || true
 
 if [[ "${CODE_SIGNING_ALLOWED:-NO}" == "YES" && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]]; then
   codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --timestamp=none "$DEST/libsniffer.dylib"

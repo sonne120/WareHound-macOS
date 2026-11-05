@@ -43,7 +43,12 @@ struct FollowStreamView: View {
         }
         .frame(width: 720, height: 620)
         .background(AppColors.primary)
-        .task { await rebuild() }
+        .task {
+            if keylogPath == nil, !SettingsViewModel.shared.tlsKeylogPath.isEmpty {
+                keylogPath = SettingsViewModel.shared.tlsKeylogPath
+            }
+            await rebuild()
+        }
     }
 
     // MARK: - Header

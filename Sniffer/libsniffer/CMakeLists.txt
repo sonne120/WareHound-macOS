@@ -83,6 +83,8 @@ add_library(sniffer SHARED
     src/api/reassembly.cpp
     src/api/tls_decrypt.cpp
     src/api/quic_decrypt.cpp
+    src/api/http_tracker.cpp
+    src/api/proc_resolver.cpp
 )
 
 if(APPLE)
@@ -136,6 +138,8 @@ else()
 endif()
 
 find_package(Threads REQUIRED)
+find_package(ZLIB REQUIRED)
+target_link_libraries(sniffer PRIVATE ZLIB::ZLIB)
 target_link_libraries(sniffer PUBLIC Threads::Threads)
 
 # ---- OpenSSL libcrypto (TLS key-log decryption) -------------------------
@@ -223,6 +227,11 @@ if(SNIFFER_BUILD_TESTS)
         target_link_libraries(pipeline_gtest PRIVATE sniffer GTest::gtest GTest::gtest_main)
         set_target_properties(pipeline_gtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
         add_test(NAME pipeline_gtest COMMAND pipeline_gtest)
+
+        add_executable(http_stream_gtest tests/http_stream_gtest.cpp)
+        target_link_libraries(http_stream_gtest PRIVATE sniffer ZLIB::ZLIB GTest::gtest GTest::gtest_main)
+        set_target_properties(http_stream_gtest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+        add_test(NAME http_stream_gtest COMMAND http_stream_gtest)
     else()
         message(STATUS "libsniffer: GTest not found — skipping tests")
     endif()

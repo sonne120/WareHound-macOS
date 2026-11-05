@@ -48,6 +48,7 @@ echo "==> [4/6] Embedding libsniffer.dylib in the app bundle"
 # in its rpaths, but Xcode does not copy the dylib into the bundle.
 mkdir -p "$APP/Contents/Frameworks"
 cp "$ROOT/Frameworks/libsniffer.dylib" "$APP/Contents/Frameworks/"
+xattr -c "$APP/Contents/Frameworks/libsniffer.dylib" 2>/dev/null || true
 # Drop the absolute rpath to this checkout so the app can't silently depend on it.
 BIN="$APP/Contents/MacOS/WareHound"
 install_name_tool -delete_rpath "$ROOT/Frameworks" "$BIN" 2>/dev/null || true

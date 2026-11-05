@@ -254,6 +254,15 @@ void assemble_udp(SnifferStream& s) {
 }
 }
 
+namespace sniff::stream {
+bool frame_to_segment(const uint8_t* frame, int len, int link_type, uint64_t ts_usec, Segment& out) {
+    FrameView v = parse_frame(frame, len, link_type);
+    if (!v.ok || v.fragmented) return false;
+    if (v.ip_proto != 6 && v.ip_proto != 17) return false;
+    return make_segment(v.src, v.dst, v.ip_proto, v.l3pl, v.l3pl_len, ts_usec, out);
+}
+}
+
 extern "C" {
 IPC_EXPORT SnifferStream* IPC_CALL fnStreamOpen(void) {
     return new (std::nothrow) SnifferStream();

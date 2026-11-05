@@ -237,6 +237,21 @@ void nonce_from_iv(const Bytes& iv, uint64_t seq, uint8_t out[12]) {
 }
 
 // Handshake-key records fail the tag and are skipped without consuming a sequence number.
+// Capture time of the ciphertext a record starts in; records arrive in increasing offset order.
+struct TsCursor {
+    const SnifferStream& s;
+    int dir;
+    size_t i = 0;
+    uint64_t at(const uint8_t* record) {
+        const auto& buf = s.dir_bytes[dir];
+        if (buf.empty() || record < buf.data()) return 0;
+        const uint32_t off = static_cast<uint32_t>(record - buf.data());
+        while (i < s.chunks.size() &&
+               (s.chunks[i].dir != dir || s.chunks[i].offset + s.chunks[i].length <= off)) ++i;
+        return (i < s.chunks.size() && s.chunks[i].offset <= off) ? s.chunks[i].ts_usec : 0;
+    }
+};
+
 int decrypt13_dir(SnifferStream& s, int dir, const Bytes& secret, const Suite& su) {
     const EVP_MD* md = su.md();
     const Bytes key = hkdf_expand_label(md, secret, "key", {}, su.key_len);
@@ -245,6 +260,7 @@ int decrypt13_dir(SnifferStream& s, int dir, const Bytes& secret, const Suite& s
 
     int decrypted = 0;
     uint64_t seq = 0;
+    TsCursor ts{s, dir};
     for (const auto& r : split_records(s.dir_bytes[dir])) {
         if (r.type != 23) continue;
         if (r.len < 17) continue;
@@ -259,7 +275,7 @@ int decrypt13_dir(SnifferStream& s, int dir, const Bytes& secret, const Suite& s
             SnifferStreamChunk c{}; c.dir = dir;
             c.offset = (uint32_t)s.plain_bytes[dir].size();
             c.length = (uint32_t)pt.size();
-            c.ts_usec = 0;
+            c.ts_usec = ts.at(r.hdr);
             s.plain_bytes[dir].insert(s.plain_bytes[dir].end(), pt.begin(), pt.end());
             s.plain_chunks.push_back(c);
         }
@@ -283,6 +299,7 @@ int decrypt12_dir(SnifferStream& s, int dir, const Bytes& write_key,
     bool encrypting = false;
     uint64_t seq = 0;
     int decrypted = 0;
+    TsCursor ts{s, dir};
     for (const auto& r : split_records(s.dir_bytes[dir])) {
         if (!encrypting) { if (r.type == 20) encrypting = true; continue; }
         // GCM record: explicit_nonce(8) || ciphertext || tag(16).
@@ -304,7 +321,7 @@ int decrypt12_dir(SnifferStream& s, int dir, const Bytes& write_key,
                 SnifferStreamChunk c{}; c.dir = dir;
                 c.offset = (uint32_t)s.plain_bytes[dir].size();
                 c.length = (uint32_t)pt.size();
-                c.ts_usec = 0;
+                c.ts_usec = ts.at(r.hdr);
                 s.plain_bytes[dir].insert(s.plain_bytes[dir].end(), pt.begin(), pt.end());
                 s.plain_chunks.push_back(c);
             }
