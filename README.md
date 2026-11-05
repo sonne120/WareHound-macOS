@@ -5,6 +5,19 @@ A native macOS packet analyzer written in Swift/SwiftUI on top of `libsniffer`
 Docker containers, decodes it, and lets you filter, follow streams, read HTTP
 history, and decrypt TLS.
 
+> [!IMPORTANT]
+> **Installing from the DMG?** The app is ad-hoc signed and not notarized, so
+> macOS reports it as "damaged" or "from an unidentified developer" on first
+> launch. After dragging WareHound to **Applications**, run this once in Terminal,
+> then open the app normally:
+>
+> ```sh
+> xattr -dr com.apple.quarantine /Applications/WareHound.app
+> ```
+>
+> Repeat it after installing a newer DMG. Live capture also needs one-time BPF
+> access, described in [Kernel access for capture](#kernel-access-for-capture-one-time).
+
 ![Capture view: live traffic on en0 with TLS, HTTPS and QUIC packets](image_1.png)
 
 ## Requirements
@@ -30,17 +43,28 @@ The script builds `libsniffer` with CMake, copies it to `Frameworks/libsniffer.d
 and builds an unsigned Debug app with `xcodebuild`.
 
 To build a distributable DMG instead, run `scripts/make_dmg.sh`. The result lands in
-`dist/`. An ad-hoc signed DMG is blocked by Gatekeeper on first launch: right-click
-the app and choose **Open**, or run
-`xattr -dr com.apple.quarantine /Applications/WareHound.app`.
+`dist/`. The GitHub workflow builds the same DMG on every push and attaches it to
+releases tagged `v*`.
+
+After installing from a DMG, remove the quarantine flag as described in the
+notice at the top of this page, otherwise macOS refuses to open the app.
 
 ## Kernel access for capture (one-time)
 
 Live capture reads the BPF devices `/dev/bpf*`, which macOS restricts to root.
 WareHound can grant itself access without running as root.
 
-**In the app (recommended).** Open **Settings**, find the **BPF access** card and
-press **Install BPF access…**. macOS asks for your administrator password once.
+**In the app (recommended).** Open **Settings** and find the **Capture backend**
+card shown below. Click **Install BPF access…** (the button sits where the green
+"BPF access installed" badge is in the picture). macOS asks for your
+administrator password once, the badge turns green, and live capture is ready to
+run.
+
+![Settings, Capture backend card: libpcap / BPF selected, BPF access installed, Remove button](image_3.png)
+
+The **Packet Tunnel unavailable** box in the same card can be ignored. It only
+concerns signed builds, and libpcap / BPF is the backend this guide uses.
+
 The installer then:
 
 1. creates the `access_bpf` group if needed and adds your user to it,
@@ -260,6 +284,7 @@ WareHound-macOS/scripts/capture-containers.sh 20 10000 tcp port 9092 or tcp port
 
 | Problem | Fix |
 |---|---|
+| "WareHound is damaged" or "developer cannot be verified" after installing the DMG | Run `xattr -dr com.apple.quarantine /Applications/WareHound.app` once, then launch again. |
 | `library not found for -lsniffer` | Run `./build_app.sh`; it builds and copies the dylib. |
 | Interface list empty, or capture fails with a permission error | Install BPF access in Settings, then log out and back in. |
 | BPF access lost after a reboot | The LaunchDaemon is missing. Press **Install BPF access…** again. |
@@ -270,7 +295,7 @@ WareHound-macOS/scripts/capture-containers.sh 20 10000 tcp port 9092 or tcp port
 ## Project layout
 
 ```
-Sniffer/libsniffer/      C++ capture core: libpcap, reassembly, TLS/QUIC decryption, HTTP tracker
+Sniffer/libsniffer/      C++ capture core: libpcap, reassembly, TLS/QUIC decryption, HTTP traceker
 WareHound-macOS/
   Sources/Views/         SwiftUI screens
   Sources/ViewModels/    UI state and logic
