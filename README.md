@@ -52,21 +52,35 @@ Log out and back in once so your session picks up the new group. The same card
 shows the device count and whether the devices are readable and writable, and
 **Remove…** undoes the installation.
 
-**By hand.** The equivalent shell steps, using the scripts in
-`WareHound-macOS/scripts/`:
+**By hand.** The equivalent shell steps. Run them from the root of this
+repository, the folder that contains `WareHound-macOS/`, because the `cp` lines
+use paths relative to it:
 
 ```sh
-sudo dseditgroup -o create access_bpf 2>/dev/null
+cd /path/to/WareHound_mac   # your clone of this repository
+
+# 1. Group: create it only if it does not exist yet, then join it.
+dseditgroup -o read access_bpf >/dev/null 2>&1 || sudo dseditgroup -o create access_bpf
 sudo dseditgroup -o edit -a "$USER" -t user access_bpf
+
+# 2. Boot-time helper that opens /dev/bpf* to the group.
 sudo mkdir -p "/Library/Application Support/WareHound"
 sudo cp WareHound-macOS/scripts/warehound-chmod-bpf.sh "/Library/Application Support/WareHound/"
 sudo chmod 755 "/Library/Application Support/WareHound/warehound-chmod-bpf.sh"
 sudo cp WareHound-macOS/scripts/org.warehound.ChmodBPF.plist /Library/LaunchDaemons/
 sudo chown root:wheel /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
-sudo launchctl load /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
+sudo chmod 644 /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
+
+# 3. Start it now; it also runs at every boot.
+sudo launchctl bootstrap system /Library/LaunchDaemons/org.warehound.ChmodBPF.plist
 ```
 
-Wireshark's ChmodBPF helper does the same job if you already have it installed.
+Check the result with `ls -l /dev/bpf0`. It should show `crw-rw----` and the
+group `access_bpf`. Log out and back in once so your session picks up the group.
+
+The manual steps install the daemon `org.warehound.ChmodBPF`, while the in-app
+installer uses `com.warehound.chmodbpf`. Either one is enough; you do not need
+both. Wireshark's ChmodBPF helper does the same job if you already have it.
 As a quick test you can also run the binary with `sudo`, but the app then writes
 its settings as root.
 
