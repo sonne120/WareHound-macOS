@@ -328,6 +328,7 @@ struct SettingsView: View {
         card("Packet columns", systemImage: "tablecells") {
             HStack(alignment: .top, spacing: 24) {
                 VStack(alignment: .leading, spacing: 10) {
+                    settingToggle("App", isOn: $settings.showAppColumn)
                     settingToggle("MAC addresses", isOn: $settings.showMacAddresses)
                     settingToggle("Checksum", isOn: $settings.showChecksum)
                     settingToggle("TCP flags", isOn: $settings.showTcpFlags)

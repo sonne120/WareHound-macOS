@@ -114,8 +114,8 @@ The screenshot shows a live capture on `en0`. From left to right, the toolbar ha
 
 - **Interface** picker and **Start Capture** (⌘R). Press it again to stop.
   **Clear** empties the list.
-- **Router** menu: quick filters for traffic routed via the gateway (by MAC) or
-  addressed to the router (by IP).
+- **Router** menu: quick filters for traffic that goes through your router. See
+  **Working with the Router menu** below.
 - **Containers**: Docker capture, described below.
 - **Filter** field for the display filter. Examples:
 
@@ -140,9 +140,54 @@ The screenshot shows a live capture on `en0`. From left to right, the toolbar ha
 The row of chips under the toolbar is the quick filter: **HTTP**, **JSON**,
 **HTML**, status classes **2xx** to **5xx**, and **Flagged**. A chip selects whole
 flows, so the packet table keeps every packet of a connection that carried a
-matching exchange. The **Apps** and **Hosts** menus narrow the table to one
-application or one host. Rows are colour-coded by protocol, and the donut at the
-bottom shows the protocol mix of the capture.
+matching exchange. The **Hosts** menu narrows the table to one host. Rows are
+colour-coded by protocol, and the donut at the bottom shows the protocol mix of
+the capture.
+
+### Working with the Router menu
+
+The **Router** menu in the toolbar filters the capture down to what passes
+through your gateway. WareHound reads the default gateway from the system and
+writes a ready-made expression into the filter field, so you can see it, edit it,
+or combine it with your own terms. It has three entries:
+
+- **Routed via gateway (MAC)**: fills in `mac == <router MAC>`, matching every
+  packet whose Ethernet source or destination is the router. That is all traffic
+  leaving or entering your network.
+- **Addressed to the router (IP)**: fills in `ip == <gateway IP>`, matching only
+  packets sent to or from the router itself, such as DNS queries when the router
+  is your resolver, DHCP, and its web admin.
+- **Show all traffic (clear filter)**: empties the filter field. Choosing the
+  same entry a second time also clears it.
+
+The **?** button next to the menu lists what to expect: ARP from your Mac
+resolving the gateway, DHCP Discover/Offer/Request/ACK, DNS, the router's HTTP or
+TLS admin interface, and broadcast or multicast such as mDNS and SSDP. On a
+switched Wi-Fi or Ethernet network the capture sees your own host's traffic plus
+broadcasts, not other devices' unicast, unless you use a mirror port. The menu
+turns blue while a router filter is active.
+
+### App column and the Apps menu
+
+![Capture table with the App column and the open Apps menu listing Google Chrome, claude, Slack, Visual Studio Code, Claude and Spotify with packet counts and bytes](image_5.png)
+
+During a live capture of your Mac's own traffic, WareHound looks up which local
+process owns each TCP or UDP flow. The **App** column, on by default, shows that
+application's icon and name on every row, as in the picture.
+
+To turn the App column off, or back on, use either of these. Both remember the
+choice across launches:
+
+- **Columns** menu in the Capture toolbar: untick **App**.
+- **Settings**, **Packet columns** card: switch off **App**.
+
+The **Apps** menu above the table lists every application seen so far with its
+packet count and bytes, largest first. Click an app to show only its traffic; the
+menu label changes to the app name and turns blue. Click **All Apps** to go back
+to everything. Right-clicking a row offers the same via **Filter by App**.
+Command-line tools without an app bundle, such as `claude` in the picture, appear
+with a terminal icon. Container traffic from Docker captures is attributed to the
+container name instead.
 
 Right-click a packet for **Open Details** (decoded fields and hex dump),
 **Follow Stream**, a colour flag, **Filter by App**, **Filter by Host**, and
@@ -220,6 +265,16 @@ reaches `en0`. WareHound starts a small helper container
 inside that VM and streams the packets back into the app. No BPF access or
 `sudo` is needed for this mode.
 
+> [!IMPORTANT]
+> **Capturing Docker containers?** Switch the **Interface** picker at the left of
+> the toolbar to the `bridge` interface first. Leave it on `en0` and you will see
+> your Mac's own traffic, not the containers'. The toolbar should look like this,
+> with `bridge0` selected, before you click **Containers**:
+>
+> ![Capture toolbar with the Interface picker set to bridge0](image_4.png)
+>
+> Then click **Containers** and the container traffic streams in.
+
 The screenshot shows a capture of a Kafka/MySQL stack: the **Protocol** column
 labels port 3306 as MySQL, and the **Info** column resolves container IPs to
 their names, such as `kafkaflowshard-proxysql → kafkaflowshard-mysql-master`,
@@ -234,9 +289,10 @@ together with the MySQL server version seen in the greeting.
    docker pull nicolaka/netshoot
    ```
 
-**Live capture.** Click **Containers** in the Capture toolbar. WareHound detects
-the Docker bridge networks and captures all container traffic, including
-containers that expose no ports, until you press **Stop Capture**.
+**Live capture.** Select the `bridge` interface in the **Interface** picker, then
+click **Containers** in the Capture toolbar. WareHound detects the Docker bridge
+networks and captures all container traffic, including containers that expose
+no ports, until you press **Stop Capture**.
 
 **Timed capture.** Open the **Containers** menu and pick
 **Auto-detect · bounded window → Capture 5 s / 10 s / 30 s** to record for a

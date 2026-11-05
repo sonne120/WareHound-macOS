@@ -139,6 +139,10 @@ final class SettingsViewModel {
     var showTcpAck = false {
         didSet { UserDefaults.standard.set(showTcpAck, forKey: "showTcpAck") }
     }
+    // App column (process that owns the flow); on by default.
+    var showAppColumn = true {
+        didSet { UserDefaults.standard.set(showAppColumn, forKey: "showAppColumn") }
+    }
     var captureFilter = "" {
         didSet { UserDefaults.standard.set(captureFilter, forKey: "captureFilter") }
     }
@@ -239,6 +243,7 @@ final class SettingsViewModel {
         if d.object(forKey: "showIcmp") != nil { showIcmp = d.bool(forKey: "showIcmp") }
         if d.object(forKey: "showTcpSeq") != nil { showTcpSeq = d.bool(forKey: "showTcpSeq") }
         if d.object(forKey: "showTcpAck") != nil { showTcpAck = d.bool(forKey: "showTcpAck") }
+        if d.object(forKey: "showAppColumn") != nil { showAppColumn = d.bool(forKey: "showAppColumn") }
         let buf = UserDefaults.standard.integer(forKey: "maxPacketBuffer")
         if buf > 0 { maxPacketBuffer = buf }
         selectedThemeIndex = darkModeEnabled ? 1 : 0

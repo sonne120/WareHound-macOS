@@ -79,6 +79,7 @@ struct CaptureView: View {
             applyColumnSettings()
             if gatewayFilterExpr == nil { gatewayFilterExpr = Self.resolveGatewayFilter() }
         }
+        .onChange(of: settings.showAppColumn) { _, _ in applyColumnSettings() }
         .onChange(of: settings.showMacAddresses) { _, _ in applyColumnSettings() }
         .onChange(of: settings.showChecksum) { _, _ in applyColumnSettings() }
         .onChange(of: settings.showTcpFlags) { _, _ in applyColumnSettings() }
@@ -98,6 +99,7 @@ struct CaptureView: View {
 
     // Owned by Settings so it survives tab switches, which rebuild this view's @State.
     private func applyColumnSettings() {
+        setColumnVisible(.app, settings.showAppColumn)
         setColumnVisible(.srcMac, settings.showMacAddresses)
         setColumnVisible(.dstMac, settings.showMacAddresses)
         setColumnVisible(.checksum, settings.showChecksum)
@@ -285,6 +287,7 @@ struct CaptureView: View {
                             get: { !hiddenColumns.contains(col) },
                             set: { on in
                                 if on { hiddenColumns.remove(col) } else { hiddenColumns.insert(col) }
+                                if col == .app { settings.showAppColumn = on }   // persists, same as the Settings toggle
                             }
                         ))
                     }
