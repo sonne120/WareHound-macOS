@@ -5,7 +5,7 @@ A native macOS packet analyzer written in Swift/SwiftUI on top of `libsniffer`
 Docker containers, decodes it, and lets you filter, follow streams, read HTTP
 history, and decrypt TLS.
 
-![Capture view: MySQL traffic between Docker containers, with container names in the Info column](image_2.png)
+![Capture view: live traffic on en0 with TLS, HTTPS and QUIC packets](image_1.png)
 
 ## Requirements
 
@@ -71,8 +71,6 @@ As a quick test you can also run the binary with `sudo`, but the app then writes
 its settings as root.
 
 ## Capture
-
-![Capture view: live traffic on en0 with TLS, HTTPS and QUIC packets](image_1.png)
 
 The screenshot shows a live capture on `en0`. From left to right, the toolbar has:
 
@@ -175,6 +173,8 @@ The key log holds secrets for your sessions. Press **Turn Off** in Settings and
 delete the file when you are done.
 
 ## Docker container capture
+
+![Capture view: MySQL traffic between Docker containers, with container names in the Info column](image_2.png)
 
 On macOS, Docker Desktop runs containers inside a Linux VM, so their traffic never
 reaches `en0`. WareHound starts a small helper container
