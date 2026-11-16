@@ -1,3 +1,7 @@
+![Downloads](https://img.shields.io/github/downloads/sonne120/WareHound-macOS/total)
+
+![Latest](https://img.shields.io/github/downloads/sonne120/WareHound-macOS/latest/total)
+
 # WareHound for macOS
 
 A native macOS packet analyzer written in Swift/SwiftUI on top of `libsniffer`
