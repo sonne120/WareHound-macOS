@@ -1,5 +1,10 @@
-![Downloads](https://img.shields.io/github/downloads/sonne120/WareHound-macOS/total)
-![Latest](https://img.shields.io/github/downloads/sonne120/WareHound-macOS/latest/total)
+[![Release](https://img.shields.io/github/v/release/sonne120/WareHound-macOS)](https://github.com/sonne120/WareHound-macOS/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/sonne120/WareHound-macOS/total)](https://github.com/sonne120/WareHound-macOS/releases)
+[![Latest](https://img.shields.io/github/downloads/sonne120/WareHound-macOS/latest/total)](https://github.com/sonne120/WareHound-macOS/releases/latest)
+![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
+![Language](https://img.shields.io/github/languages/top/sonne120/WareHound-macOS)
+![Stars](https://img.shields.io/github/stars/sonne120/WareHound-macOS)
+![Last commit](https://img.shields.io/github/last-commit/sonne120/WareHound-macOS)
 
 # WareHound for macOS
 
